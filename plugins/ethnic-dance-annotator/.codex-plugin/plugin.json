@@ -1,0 +1,22 @@
+{
+  "name": "ethnic-dance-annotator",
+  "version": "0.1.0",
+  "description": "Batch RTMPose and MotionAGFormer annotation for ethnic-dance videos, with optional OpenAI vision captions.",
+  "author": {
+    "name": "Ethnic Dance Project Team"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "民族舞蹈批量标注",
+    "shortDescription": "批量生成2D/3D骨架、质检和动作文字描述。",
+    "longDescription": "复用本地RTMPose与MotionAGFormer项目，批量处理上传视频，生成COCO-17二维骨架、Human3.6M-17估计三维骨架、可视化、日志及可选的OpenAI视觉动作描述。",
+    "developerName": "Ethnic Dance Project Team",
+    "category": "Productivity",
+    "capabilities": ["Local video processing", "Batch automation", "Optional OpenAI vision captions"],
+    "defaultPrompt": [
+      "批量标注我上传的民族舞蹈视频。",
+      "检查姿态标注环境并列出缺失项。",
+      "为已处理的视频生成详细动作描述。"
+    ]
+  }
+}

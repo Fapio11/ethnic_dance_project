@@ -1,0 +1,39 @@
+runtime/pose_jobs/
+__pycache__/
+*.pyc
+
+# Local configuration and secrets
+.env
+.env.*
+!.env.example
+
+# Frontend dependencies and local build state
+web/node_modules/
+web/.vinext/
+web/.wrangler/
+web/.next/
+web/.sites-runtime/
+web/.openai/
+web/dist/
+
+# Large local data and generated pose results
+data/raw_videos/
+data/pose_2d/
+data/pose_3d_est/
+data/captions/
+outputs/
+
+# Model weights are obtained separately by each developer
+models/
+third_party/MotionAGFormer/checkpoint/
+*.pth
+*.pth.tar
+*.task
+
+# Local editor, archives, and database files
+.vscode/
+docx_render/
+.git-backups/
+*.zip
+*.sql
+*.db
