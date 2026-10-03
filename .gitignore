@@ -16,19 +16,8 @@ web/.sites-runtime/
 web/.openai/
 web/dist/
 
-# Large local data and generated pose results
-data/raw_videos/
-data/pose_2d/
-data/pose_3d_est/
-data/captions/
-outputs/
-
-# Model weights are obtained separately by each developer
-models/
-third_party/MotionAGFormer/checkpoint/
-*.pth
-*.pth.tar
-*.task
+# Large data and model weights are versioned with Git LFS.
+# The following local-only folders remain excluded below.
 
 # Local editor, archives, and database files
 .vscode/

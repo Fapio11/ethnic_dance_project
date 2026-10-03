@@ -1,0 +1,7 @@
+models/** filter=lfs diff=lfs merge=lfs -text
+third_party/MotionAGFormer/checkpoint/** filter=lfs diff=lfs merge=lfs -text
+data/raw_videos/** filter=lfs diff=lfs merge=lfs -text
+data/pose_2d/** filter=lfs diff=lfs merge=lfs -text
+data/pose_3d_est/** filter=lfs diff=lfs merge=lfs -text
+data/captions/** filter=lfs diff=lfs merge=lfs -text
+outputs/** filter=lfs diff=lfs merge=lfs -text
