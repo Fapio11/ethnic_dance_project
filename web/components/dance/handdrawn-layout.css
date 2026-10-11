@@ -1,0 +1,64 @@
+/* The painted long scroll lives at the page edge, outside the controls. */
+.shell .studio-head { display: block; min-height: 260px; padding: 20px 0 32px; isolation: isolate; }
+.studio-head__copy { max-width: 56%; }
+.studio-head .dance-artwork { position: absolute; z-index: -1; inset: 0 -28px 0 34%; width: auto; height: 100%; overflow: hidden; }
+.studio-head .dance-artwork img { height: 100%; width: 100%; object-fit: contain; object-position: right bottom; }
+.shell .studio-head h1 { font-size: clamp(34px,3.3vw,48px); letter-spacing: .04em; }
+.studio-head__copy > p:not(.eyebrow) { max-width: 35em; font-size: 15px; }
+.studio-head__upload { gap: 18px; }
+.studio-head__upload .upload-guidance { font-size: 11px; }
+.shell .catalogue-opening { display: block; padding: 26px 0 32px; min-height: 174px; }
+.catalogue-opening__copy { max-width: 960px; }
+.page-library .catalogue-opening__copy { max-width: 80%; }
+.catalogue-bookmark { position: absolute; inset: 4px 8px auto auto; width: 142px; height: 154px; display: grid; place-items: center; transform: rotate(7deg); }
+.catalogue-bookmark::after { content: ""; position: absolute; right: -10px; top: 35px; height: 100px; width: 1px; background: var(--line); }
+.catalogue-bookmark .dance-icon { width: 138px; height: 138px; }
+.catalogue-opening--compact .heading-phrase { display: inline-block; }
+.shell .catalogue-opening--compact .catalogue-opening__copy { max-width: none; }
+.catalogue-opening--compact h1 { max-width: none; }
+.page-about .catalogue-opening { padding-left: 28px; border-left: 3px solid var(--red); }
+.shell .search .dance-icon--small { width: 28px; height: 28px; }
+.dance-icon[data-selected="true"] { filter: none; opacity: 1; }
+.dance-icon--small { width: 24px; height: 24px; }
+.page-library .archive .dance-icon[data-selected="false"] { filter: saturate(.28); opacity: .78; }
+.page-library .archive .resource-row:is(:hover,:focus-within) .dance-icon { filter: saturate(.85); opacity: 1; }
+.page-library .archive .resource-row[data-selected="true"] .dance-icon { filter: saturate(1.15); opacity: 1; }
+@media (max-width: 1119px) and (min-width: 768px) {
+  .shell .studio-head { min-height: 280px; }
+  .studio-head__copy { max-width: 60%; }
+  .studio-head .dance-artwork { left: 40%; right: 0; }
+  .studio-head__upload { align-items: start; flex-direction: column; gap: 8px; }
+  .studio-head__upload .upload-guidance br { display: initial; }
+  .page-library .catalogue-opening__copy { max-width: 78%; }
+  .shell .catalogue-opening h1 { font-size: 34px; }
+}
+@media (max-width: 767px) {
+  .shell .studio-head { min-height: 0; padding: 4px 0 100px; }
+  .studio-head__copy { max-width: none; }
+  .shell .studio-head h1 { font-size: 32px; margin-top: 12px; }
+  .studio-head__copy > p:not(.eyebrow) { font-size: 14px; max-width: 100%; }
+  .studio-head .dance-artwork { inset: auto -16px 0 0; height: 110px; width: auto; }
+  .studio-head .dance-artwork img { object-fit: contain; object-position: right bottom; }
+  .studio-head__upload { display: flex; align-items: center; flex-direction: row; gap: 12px; margin-top: 16px; }
+  .shell .studio-head__upload [data-slot="button"] { padding-inline: 14px; min-height: 46px; }
+  .studio-head__upload .upload-guidance { font-size: 10px; }
+  .shell .catalogue-opening { display: block; min-height: 0; padding: 4px 0 24px; }
+  .catalogue-opening__copy { display: block; }
+  .page-library .catalogue-opening__copy { max-width: none; }
+  .shell .catalogue-opening h1 { font-size: 29px; line-height: 1.4; margin-top: 14px; }
+  .catalogue-opening__copy > p:last-child { font-size: 14px; }
+  .catalogue-bookmark { width: 64px; height: 60px; top: -6px; right: 0; }
+  .catalogue-bookmark .dance-icon { width: 60px; height: 60px; }
+  .catalogue-bookmark::after { display: none; }
+  .page-library .chapter-label { min-height: 48px; }
+  .page-about .catalogue-opening { border-left: 0; }
+  .catalogue-opening--compact .heading-phrase { display: block; }
+}
+@media (max-height: 800px) and (min-width: 1120px) {
+  .shell .studio-head { min-height: 248px; padding-top: 12px; padding-bottom: 36px; }
+  .studio-head .dance-artwork { height: 100%; }
+  .shell .studio-head h1 { font-size: 40px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .catalogue-bookmark { transform: none; }
+}

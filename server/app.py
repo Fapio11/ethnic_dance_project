@@ -61,6 +61,8 @@ app.add_middleware(
     allow_origins=[
         "http://127.0.0.1:5173",
         "http://localhost:5173",
+        "http://127.0.0.1:5185",
+        "http://localhost:5185",
         (
             "https://dance-heritage-lab."
             "black-genet-9783.chatgpt.site"

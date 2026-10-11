@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "description": "Offline structured-intent routing fixtures, not real Codex activation or browser evidence.",
+  "cases": [
+    {"name": "experimental portfolio", "overrides": {"task_kind": "creative-site", "direction": {"status": "unconfirmed", "reference": null}}, "mode": "explore", "reads": ["design-taste-frontend"], "no_reads": ["oil-motion"], "no_business_writes": true},
+    {"name": "existing page optimization", "overrides": {"task_kind": "frontend-change", "direction": {"status": "existing", "reference": "DESIGN.md"}}, "mode": "refine", "no_stage": "reference-exploration", "no_reads": ["oil-motion", "design-taste-frontend"]},
+    {"name": "button hover", "overrides": {"task_kind": "animation", "animation": "native"}, "mode": "motion", "stage": "native-motion", "no_reads": ["oil-motion", "design-taste-frontend"], "generation_status": "not-requested"},
+    {"name": "drag character frames", "overrides": {"task_kind": "animation", "animation": "existing-media"}, "mode": "motion", "reads": ["oil-motion"], "stage": "media-local-processing", "generation_status": "not-requested", "blocked": false},
+    {"name": "unauthorized generated morph", "overrides": {"task_kind": "animation", "animation": "generate-media"}, "mode": "motion", "reads": ["oil-motion"], "stage": "media-specification", "no_stage": "media-generation", "generation_status": "blocked", "blocked": true},
+    {"name": "read-only review", "overrides": {"mode": "review", "desired_enhancements": ["polish", "overdrive"]}, "mode": "review", "reads": ["impeccable"], "no_business_writes": true, "no_stage": "enhancement-overdrive", "generation_status": "not-run"},
+    {"name": "preserve collage identity", "overrides": {"mode": "refine", "desired_enhancements": ["polish"], "scope": {"allowed_paths": ["src/拼贴 页面.tsx"], "preserve": ["collage layout", "brutalist typography", "pixel transitions", "API and module responsibilities"], "target_devices": ["desktop"]}}, "mode": "refine", "stage": "enhancement-polish", "preserve": ["collage layout", "brutalist typography", "pixel transitions", "API and module responsibilities"], "no_stage": "reference-exploration"},
+    {"name": "backend request", "overrides": {"task_kind": "backend"}, "eligible": false, "mode": null, "no_business_writes": true},
+    {"name": "pure copy request", "overrides": {"task_kind": "copy"}, "eligible": false, "mode": null, "no_business_writes": true},
+    {"name": "confirmed build", "overrides": {"mode": "build", "task_kind": "creative-site", "direction": {"status": "user-confirmed", "reference": "art-direction.md"}}, "mode": "build", "stage": "implementation-slice", "no_stage": "reference-exploration", "reads": ["design-taste-frontend", "impeccable"], "no_reads": ["oil-motion"]},
+    {"name": "unconfirmed build checkpoint", "overrides": {"mode": "build", "direction": {"status": "unconfirmed", "reference": null}}, "mode": "build", "no_business_writes": true, "no_stage": "implementation-slice", "blocked": true},
+    {"name": "delegated build retains source", "overrides": {"mode": "build", "direction": {"status": "user-delegated", "reference": "brief.md"}}, "mode": "build", "stage": "implementation-slice", "no_stage": "reference-exploration", "blocked": false},
+    {"name": "realtime shader", "overrides": {"mode": "motion", "animation": "realtime", "desired_enhancements": ["overdrive"]}, "mode": "motion", "stage": "realtime-motion", "reads": ["impeccable"], "no_reads": ["oil-motion", "design-taste-frontend"]},
+    {"name": "authorized generation sample", "overrides": {"mode": "motion", "animation": "generate-media", "authorization": {"implementation": true, "generation": {"status": "granted", "service": "fixture-service", "data_scope": ["approved character still"], "max_calls": 1, "max_cost": null, "currency": null, "stop_conditions": ["stop after one sample or continuity failure"]}}}, "mode": "motion", "stage": "media-generation", "generation_status": "planned", "blocked": false}
+  ]
+}

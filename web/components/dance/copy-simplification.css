@@ -1,0 +1,70 @@
+/* Short copy lets the existing artwork and working surfaces lead. */
+.shell .catalogue-opening {
+  min-height: 96px;
+  padding-block: 12px 20px;
+}
+
+.shell .catalogue-opening h1 {
+  margin: 0;
+}
+
+.catalogue-bookmark {
+  top: -6px;
+  width: 84px;
+  height: 84px;
+}
+
+.catalogue-bookmark .dance-icon {
+  width: 84px;
+  height: 84px;
+}
+
+.catalogue-bookmark::after {
+  top: 16px;
+  height: 56px;
+}
+
+.shell .reference-selection h2,
+.shell .learner-upload h2 {
+  margin-block: 0 16px;
+}
+
+.shell .learner-upload .upload-requirements {
+  margin-block: 12px 0;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+
+.shell .vid-empty b {
+  font-size: 15px;
+}
+
+@media (max-width: 767px) {
+  .shell .data-feedback {
+    flex-wrap: nowrap;
+  }
+
+  .shell .data-feedback__copy {
+    flex-basis: auto;
+  }
+
+  .shell .data-feedback__action {
+    margin-inline-start: 0;
+  }
+
+  .shell .catalogue-opening {
+    min-height: 64px;
+    padding-block: 4px 12px;
+  }
+
+  .catalogue-bookmark,
+  .catalogue-bookmark .dance-icon {
+    width: 60px;
+    height: 60px;
+  }
+
+  .shell .learner-upload .upload-requirements {
+    font-size: 11px;
+  }
+}

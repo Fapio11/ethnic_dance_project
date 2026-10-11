@@ -1,0 +1,144 @@
+.dance-intro {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  --intro-paper: var(--bg, #f7f4ef);
+  --intro-ink: var(--ink, #29334a);
+  --intro-accent: var(--red, #b6473d);
+  --intro-muted: var(--muted, #697080);
+  color: var(--intro-ink);
+  background: var(--intro-paper);
+  overflow: auto;
+  overscroll-behavior: contain;
+  opacity: 1;
+  font-family: inherit;
+}
+
+.dance-intro, .dance-intro * { box-sizing: border-box; }
+.dance-intro::backdrop { background: var(--bg, #f7f4ef); }
+.dance-intro__surface { display: flex; flex-direction: column; min-height: 100%; padding: max(22px, env(safe-area-inset-top)) clamp(24px, 5vw, 76px) max(24px, env(safe-area-inset-bottom)); }
+.dance-intro__header, .dance-intro__footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-shrink: 0; }
+.dance-intro__header, .dance-intro__footer { position: relative; z-index: 3; }
+.dance-intro__eyebrow { font-size: 12px; letter-spacing: .22em; }
+.dance-intro__skip, .dance-intro__music, .dance-intro__enter { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 2px; border: 0; border-radius: 0; color: inherit; background: transparent; cursor: pointer; font: inherit; font-size: 13px; }
+.dance-intro__skip { gap: 14px; color: var(--intro-muted); }
+.dance-intro__skip span { font-size: 22px; font-weight: 300; line-height: 1; }
+.dance-intro button:focus-visible { outline: 2px solid var(--intro-accent); outline-offset: 6px; }
+.dance-intro button:hover { color: var(--intro-accent); }
+.dance-intro__stage { position: relative; width: min(720px, 74dvh, 100%); aspect-ratio: 1; margin: auto; flex-shrink: 0; }
+.dance-intro__wordmark { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; opacity: 1; }
+.dance-intro__wordmark h2 { margin: 0; font-family: "Songti SC", "Noto Serif SC", "STSong", serif; font-size: clamp(48px, 9vw, 78px); font-weight: 400; line-height: 1.3; letter-spacing: .16em; text-indent: .16em; }
+.dance-intro__wordmark > span { font-size: 12px; color: var(--intro-muted); letter-spacing: .38em; text-indent: .38em; }
+.dance-intro__wordmark--hidden { opacity: 0; }
+.dance-intro__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; opacity: 0; pointer-events: none; }
+.dance-intro__video--visible { opacity: 1; mix-blend-mode: multiply; }
+.dance-intro__music { gap: 10px; color: var(--intro-muted); }
+.dance-intro__enter { gap: 28px; border-bottom: 1px solid #b6473d80; letter-spacing: .06em; }
+.dance-intro__enter > span { font-size: 20px; line-height: 1; }
+.dance-intro__quiet { font-size: 12px; color: var(--intro-muted); }
+.dance-intro__status { margin: 0 0 20px; font-size: 13px; line-height: 1.7; color: var(--intro-muted); }
+
+.dance-intro--revealing, .dance-intro--revealing::backdrop { background: transparent; }
+.dance-intro--revealing .dance-intro__stage { visibility: hidden; }
+.dance-intro--ending .dance-intro__footer, .dance-intro--ending .dance-intro__header { opacity: 0; transition: opacity 180ms ease-out; }
+.dance-intro__reveal { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 2; animation: dance-intro-logo-settle var(--intro-handoff-duration) linear both; }
+/* The paper aperture sits inside the supplied artwork. Both share one zoom. */
+.dance-intro__portal {
+  /* Its raw image rectangle is calibrated to the film's visible logo bounds. */
+  position: absolute;
+  transform: scale(1); transform-origin: 65% 63%;
+  will-change: transform, opacity;
+}
+.dance-intro__window {
+  position: absolute; top: 63%; left: 65%; width: 30%; height: 30%;
+  border-radius: 58% 42% 55% 45%;
+  background: var(--intro-paper); box-shadow: 0 0 0 150vmax var(--intro-paper);
+  transform: translate(-50%, -50%);
+}
+.dance-intro__original-logo {
+  position: absolute; inset: 0; background-image: url('/brand/logo-intro-cutout.png');
+  background-size: 100% 100%; background-position: center;
+  background-repeat: no-repeat;
+}
+.dance-intro--revealing .dance-intro__window { background: transparent; }
+.dance-intro--revealing .dance-intro__portal { animation: dance-intro-portal-expand var(--intro-reveal-duration) cubic-bezier(.72, 0, .24, 1) forwards; }
+@keyframes dance-intro-logo-settle { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dance-intro-portal-expand {
+  0% { transform: scale(1); opacity: 1; }
+  82% { opacity: 1; }
+  100% { transform: scale(var(--intro-reveal-scale)); opacity: 0; }
+}
+
+.dance-intro--static {
+  inset: auto 24px max(24px, env(safe-area-inset-bottom)) auto;
+  width: min(340px, calc(100vw - 32px));
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  border: 1px solid #d8d3cb;
+  border-radius: 0;
+  box-shadow: 0 16px 50px #29334a14;
+  z-index: 90;
+}
+.dance-intro--static .dance-intro__surface { min-height: 0; padding: 18px 24px 22px; }
+.dance-intro--static .dance-intro__eyebrow { font-size: 10px; letter-spacing: .14em; }
+.dance-intro--static .dance-intro__skip { min-height: 32px; padding: 2px; font-size: 12px; }
+.dance-intro--static .dance-intro__stage { width: 100%; height: 118px; aspect-ratio: auto; margin: 12px 0; }
+.dance-intro--static .dance-intro__wordmark { align-items: flex-start; gap: 8px; }
+.dance-intro--static .dance-intro__wordmark h2 { font-size: 38px; text-indent: 0; }
+.dance-intro--static .dance-intro__wordmark > span { font-size: 10px; text-indent: 0; }
+.dance-intro--static .dance-intro__enter { gap: 14px; }
+
+@media (max-width: 600px) {
+  .dance-intro__surface { padding-right: 24px; padding-left: 24px; }
+  .dance-intro__stage { width: min(100%, 68dvh); }
+  .dance-intro__eyebrow { font-size: 10px; letter-spacing: .16em; }
+  .dance-intro__skip { font-size: 12px; gap: 8px; }
+  .dance-intro--static { right: 16px; bottom: calc(84px + env(safe-area-inset-bottom)); }
+}
+
+@media (max-height: 500px) and (orientation: landscape) {
+  .dance-intro__surface { padding-top: 12px; padding-bottom: 12px; }
+  .dance-intro__stage { width: min(64dvh, 100%); }
+  .dance-intro__header, .dance-intro__footer { min-height: 40px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dance-intro, .dance-intro::backdrop { transition: none; }
+  .dance-intro__portal, .dance-intro__reveal { animation: none !important; }
+}
+/* Feather the supplied square film into the page without cropping the dancer. */
+.dance-intro__video {
+  mask-image: linear-gradient(to right, transparent, #000 12%, #000 88%, transparent), linear-gradient(to bottom, transparent, #000 12%, #000 88%, transparent);
+  mask-composite: intersect;
+}
+
+/* Presentation-only refinements; playback, audio preference and exit callbacks are unchanged. */
+.dance-intro__skip, .dance-intro__music, .dance-intro__enter {
+  min-height: 44px; padding-inline: 10px; font-size: 14px;
+  transition: background-color 180ms, color 180ms;
+}
+.dance-intro__skip, .dance-intro__music, .dance-intro__status, .dance-intro__quiet { color: var(--intro-muted); }
+.dance-intro__skip:hover, .dance-intro__music:hover { background: #b6473d08; }
+.dance-intro--static .dance-intro__skip { min-height: 44px; }
+.dance-intro__surface { background: radial-gradient(ellipse at 50% 48%, #eed8c624, transparent 65%); }
+.dance-intro--revealing .dance-intro__surface { background: none; }
+@media (max-width: 600px) {
+  .dance-intro__skip, .dance-intro__music, .dance-intro__enter { font-size: 13px; padding-inline: 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dance-intro__skip, .dance-intro__music, .dance-intro__enter { transition: none; }
+}
+
+/* Same paper and ink as the destination page: no palette flash at the logo aperture. */
+.dance-intro__eyebrow { color: var(--intro-accent); }
+.dance-intro__footer { padding-top: 14px; border-top: 1px solid #c49a4a52; }
+.dance-intro__music[aria-pressed="true"] { color: var(--intro-accent); }
+.dance-intro__enter { color: var(--intro-ink); border-bottom-color: var(--intro-accent); }
+.dance-intro__enter:hover { color: var(--intro-accent); background: #b6473d08; }
+.dance-intro--static .dance-intro__footer { border-top-color: #d8d3cb; }

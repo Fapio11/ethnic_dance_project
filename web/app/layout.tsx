@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "舞迹智存｜民族舞蹈数字化保护平台",
-  description: "基于单目视觉、三维姿态重建与可溯源 AI 内容的民族舞蹈数字化保护与智能传习平台。",
+  title: "舞之华｜让传统，在当下起舞",
+  description: "从一段舞蹈开始，观看示范、慢放跟练，用动作辅助认识民族舞蹈。",
   icons: { icon: "/favicon.svg" },
 };
 

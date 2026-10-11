@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "modes": ["auto", "explore", "build", "refine", "motion", "review"],
+  "task_kinds": ["creative-site", "frontend-change", "animation", "review", "backend", "copy"],
+  "animations": ["none", "native", "realtime", "existing-media", "generate-media"],
+  "stage_statuses": ["planned", "read", "executed", "verified", "skipped", "blocked", "not-run"],
+  "direction_statuses": ["unconfirmed", "user-confirmed", "user-delegated", "existing"]
+}

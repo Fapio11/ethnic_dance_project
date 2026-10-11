@@ -26,3 +26,9 @@ docx_render/
 *.zip
 *.sql
 *.db
+.DS_Store
+*.tsbuildinfo
+.superdesign/
+.creative-web-design/
+.agents/skill-development/**/reports/
+.agents/skill-development/**/*.local.json
