@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "run_id": null,
+  "task": null,
+  "mode": "auto",
+  "scope": {"allowed_paths": [], "preserve": [], "target_devices": []},
+  "current_stage": "intake",
+  "direction": {"status": "unconfirmed", "file": null, "confirmation_source": null},
+  "dependencies": [],
+  "authorization": {
+    "implementation": false,
+    "generation": {
+      "status": "not-requested",
+      "service": null,
+      "data_scope": [],
+      "max_calls": null,
+      "max_cost": null,
+      "currency": null,
+      "stop_conditions": []
+    }
+  },
+  "artifacts": [],
+  "checks": [],
+  "blocked": [],
+  "next_step": null,
+  "evidence": []
+}

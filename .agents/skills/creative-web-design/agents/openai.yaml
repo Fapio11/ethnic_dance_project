@@ -1,0 +1,6 @@
+interface:
+  display_name: "Creative Web Design"
+  short_description: "编排创意网页探索、方向锁定、局部动效与真实验收，保留既定艺术表达"
+  default_prompt: "使用 $creative-web-design mode=auto，在既定范围内编排创意网页设计。"
+policy:
+  allow_implicit_invocation: false

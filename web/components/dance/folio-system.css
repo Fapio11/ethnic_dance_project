@@ -1,0 +1,222 @@
+/* Modern folk-art folio. Shared surface roles; the existing layouts stay in charge. */
+.shell { position: relative; isolation: isolate; background: var(--bg); }
+.shell::before {
+  content: ""; position: fixed; z-index: -1; inset: 82px 0 0; pointer-events: none;
+  background: url('/art/folio-mountains.png') center bottom / cover no-repeat;
+  opacity: .18;
+  filter: grayscale(1) sepia(.2);
+  mask-image: linear-gradient(90deg,#000, #0005 25%, transparent 48%, #0005 75%, #000);
+}
+.shell[data-view="library"]::before { background-position: center 65%; opacity: .22; }
+.shell[data-view="analysis"]::before { opacity: .08; }
+.shell[data-view="about"]::before { opacity: .08; }
+.shell input, .shell textarea { caret-color: var(--red); }
+.shell { scrollbar-color: var(--line-strong) var(--bg); }
+.shell ::selection { background: #aa492f2a; color: var(--ink); }
+.catalogue-header { background: var(--panel); border-color: var(--line); box-shadow: 0 3px 10px #443b2806; }
+.catalogue-nav button.active { background: var(--paper); color: var(--ink); }
+.catalogue-nav button:hover, .mobile-nav button:hover { background: #e2d3c280; }
+.catalogue-nav button:focus-visible, .mobile-nav button:focus-visible { outline: 2px solid var(--red); outline-offset: -5px; }
+.catalogue-nav button:hover .dance-icon, .catalogue-nav button:focus-visible .dance-icon { transform: none; }
+.shell .replay-intro:hover { text-decoration: underline; text-decoration-color: var(--red); text-underline-offset: 6px; }
+.shell .head { border-bottom-color: var(--line-strong); }
+.page-studio .workbench-header::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  width: 45%; height: 80px; right: 8%; bottom: 14px;
+  border-bottom: 1px solid #a0865359; border-radius: 0 0 55% 40%; transform: rotate(-8deg);
+}
+.page-studio .workbench-header[data-compact="true"]::before { display: none; }
+
+/* A vermilion title slip: only the decorative corner is cut, never the input hit area. */
+.shell .upload-control {
+  isolation: isolate; background: var(--red); color: var(--panel); border: 1px solid var(--action-hover);
+  box-shadow: 0 3px 5px #80352216; min-height: 48px; border-radius: 2px;
+}
+.shell .upload-control::before {
+  content: ""; position: absolute; z-index: -1; inset: 3px; border: 1px solid #fff5db46;
+  clip-path: polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%); pointer-events: none;
+}
+.shell .upload-control:hover { background: var(--action-hover); box-shadow: 0 3px 7px #80352222; }
+.shell .upload-control:focus-within { outline: 2px solid var(--ink); outline-offset: 4px; }
+.shell .workbench-header__toggle { background: transparent !important; border-bottom-color: var(--gold) !important; }
+.shell .search { border-color: var(--line-strong); box-shadow: inset 3px 0 0 var(--teal); border-radius: 2px; }
+.shell .search:focus-within { border-color: var(--teal); outline: 2px solid var(--teal); outline-offset: 3px; box-shadow: inset 3px 0 0 var(--teal); }
+.shell .search select { background: var(--panel); color: var(--ink); }
+.shell .search input { min-width: 0; }
+
+/* Media frames: solid opaque title leaf and narrow dark mounting edge. */
+.shell .vid {
+  --caption-height: 66px; background: var(--teal); padding: 0 8px 8px;
+  border: 1px solid var(--teal); border-radius: 3px; box-shadow: var(--media-shadow);
+}
+.shell .vid figcaption,
+.page-studio[data-workbench="upgraded"] .viewer[data-layout] .vid figcaption {
+  height: var(--caption-height); min-height: var(--caption-height); margin-inline: -8px;
+  padding: 12px 16px; background: var(--panel); border-bottom: 0;
+}
+.shell .vid figcaption b { font-size: 17px; letter-spacing: .02em; }
+.shell .vid figcaption em { font: 12px/1.5 "PingFang SC",sans-serif; letter-spacing: 0; color: var(--muted); }
+.page-studio .vid figcaption > span { padding-left: 40px; }
+.page-studio .vid figcaption > span::before {
+  top: -6px; left: -4px; width: 30px; height: 34px; display: grid; place-items: center;
+  color: var(--panel); background: var(--teal); font: italic 17px Georgia,serif;
+}
+.shell .vid::after {
+  top: calc(var(--caption-height) + 3px); left: 3px; right: 3px; bottom: 3px;
+  background: linear-gradient(var(--gold),var(--gold)) left top / 18px 1px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) left top / 1px 18px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) right bottom / 18px 1px no-repeat,
+    linear-gradient(var(--gold),var(--gold)) right bottom / 1px 18px no-repeat;
+}
+.shell .vid-empty { background: var(--paper); }
+.shell .vid-empty::before { display: none; }
+.shell .vid:has(.vid-empty) { box-shadow: var(--surface-shadow); }
+.page-studio[data-workbench="upgraded"] .viewer[data-layout] .timeline {
+  padding: 14px 20px 8px; margin-bottom: 20px; background: var(--paper);
+  border: 1px solid var(--line-strong); border-radius: 3px; align-items: center;
+}
+.page-studio[data-workbench="upgraded"] .viewer[data-layout] .timeline button {
+  background: var(--teal); border-color: var(--teal); color: var(--panel); border-radius: 2px; margin-bottom: 0;
+  box-shadow: none;
+}
+.page-studio[data-workbench="upgraded"] .viewer[data-layout] .timeline button:hover { background: var(--ink-hover); }
+.page-studio .timeline p, .page-studio .timeline p b { color: var(--muted); }
+.page-studio[data-workbench="upgraded"] .viewer[data-layout] .timeline input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; background: linear-gradient(to right,var(--red) 0 var(--seek-progress),var(--track) var(--seek-progress) 100%);
+}
+.page-studio[data-workbench="upgraded"] .viewer[data-layout] .timeline input[type="range"]::-webkit-slider-thumb {
+  width: 18px; height: 22px; margin-top: -9px; border: 3px solid var(--panel);
+  border-radius: 3px; background: var(--red); box-shadow: 0 0 0 1px var(--red);
+}
+.page-studio .timeline input[type="range"]::-moz-range-track { background: var(--track); }
+.page-studio .timeline input[type="range"]::-moz-range-progress { background: var(--red); }
+.page-studio .timeline input[type="range"]::-moz-range-thumb { background: var(--red); border-color: var(--panel); border-radius: 3px; }
+.page-studio .viewer .view-options { gap: 0; padding: 0; border-color: var(--line-strong); background: var(--panel); }
+.page-studio .view-options button { color: var(--muted); }
+.page-studio .view-options button[aria-pressed="true"] { background: var(--paper); color: var(--ink); box-shadow: inset 0 -3px 0 var(--red); }
+
+/* Bound information leaves. One spine and one title marker, no moving static cards. */
+.shell :is(.reference-selection,.about-document__section,.narration-document) {
+  position: relative; isolation: isolate; border: 1px solid var(--line); border-top: 1px solid var(--line);
+  border-left: 4px solid var(--teal); background: var(--panel); border-radius: 2px;
+  box-shadow: var(--surface-shadow);
+}
+.shell :is(.reference-selection,.about-document__section,.narration-document)::before {
+  content: ""; position: absolute; pointer-events: none; left: auto; bottom: auto; top: -1px; right: -1px;
+  width: 12px; height: 12px; background: var(--bg); clip-path: polygon(0 0,100% 0,100% 100%);
+}
+.shell .about-document__section:first-child { border-right: 1px solid var(--line); }
+.shell .about-document__section:nth-child(3) { border-top: 1px solid var(--line); }
+.shell :is(.reference-selection,.about-document__section,.narration-document) h2 { position: relative; }
+.shell :is(.reference-selection,.about-document__section) h2::before {
+  content: ""; position: absolute; left: -32px; top: .65em; width: 16px; height: 3px; background: var(--red);
+}
+.shell .about-document__section > .dance-icon { width: 48px; height: 48px; margin-bottom: 18px; }
+.shell .about-document__section li { border-left: 0; padding-left: 0; }
+.shell .about-document__section:first-child li + li { padding-top: 12px; border-top: 1px solid var(--line); }
+.shell .learner-upload { padding: 24px; background: var(--panel); border-radius: 2px; box-shadow: var(--surface-shadow); }
+.shell .learner-upload .drop { background: var(--paper); border: 6px solid var(--teal); outline: none; min-height: 230px; }
+.shell .learner-upload > video { border: 6px solid var(--teal); background: var(--ink); }
+.shell .learner-upload label { background: var(--red); }
+.shell .learner-upload .upload-requirements { font-size: 12px; }
+
+/* Plain data leaves: no landscape or decorative curves inside a plot. */
+.shell .analysis { border-top: 0; padding-top: 0; gap: 24px; }
+.shell .analysis .chart { padding: 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; }
+.shell .analysis .chart h2 { margin: 0; font-size: 24px; }
+.shell .chart-empty { background: var(--panel); border: 0; border-top: 1px solid var(--line); margin-top: 20px; text-align: center; }
+.shell .quality-document { padding: 0 24px 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 2px; }
+.shell .quality-document h2 { margin: 0 -24px 12px; padding: 16px 24px; background: var(--teal); color: var(--panel); font-size: 23px; }
+.shell .quality-document dd { font-family: "PingFang SC",sans-serif; font-variant-numeric: tabular-nums; }
+.shell .structure-band { background: var(--panel); border: 1px solid var(--line); padding: 24px; margin-top: 0; }
+.shell .structure-band h2 { padding-left: 14px; border-color: var(--red); }
+.shell .compare { background: var(--panel); border: 1px solid var(--line); padding: 24px; margin-top: 0; gap: 24px; }
+.shell .compare h2 { margin-top: 0; font-size: 24px; }
+.shell .compare span:not([data-slot="badge"]):last-child { border-bottom: 0; }
+
+/* The catalogue state is a complete small scene; never substitute invented resources. */
+.page-library > .data-feedback:not(.data-feedback--compact) {
+  position: relative; display: grid; grid-template-columns: 150px minmax(0,1fr) auto; align-items: center;
+  gap: 32px; min-height: 252px; padding: 40px 56px; margin-top: 8px; border: 1px solid var(--line-strong);
+  background: var(--paper); border-radius: 2px; box-shadow: var(--surface-shadow);
+}
+.page-library > .data-feedback > .dance-icon { width: 132px; height: 132px; transform: rotate(-5deg); }
+.page-library > .data-feedback .data-feedback__title { font-size: 28px; font-weight: 500; }
+.page-library > .data-feedback .data-feedback__description { margin-top: 12px; }
+.shell .data-feedback__action { border-radius: 2px; background: var(--panel); color: var(--teal); }
+.shell .data-feedback__action:hover { background: var(--teal); color: var(--panel); }
+.page-library .archive .resource-row { --folio-hover-shift: -2px; }
+.page-library .archive .resource-row__surface { background: var(--panel); color: var(--ink); border-color: var(--line); border-left-color: var(--teal); box-shadow: var(--surface-shadow); }
+.page-library .archive .resource-row:is(:hover,:focus-within) .resource-row__surface { background: var(--panel); transform: translateY(-2px); border-color: var(--teal); box-shadow: var(--media-shadow); }
+.page-library .archive .resource-row[data-selected="true"] .resource-row__surface { background: var(--panel); border-color: var(--red); border-left-color: var(--red); }
+.page-library .archive .resource-row__selection { color: var(--panel); background: var(--red); }
+.shell .pipeline > div { border-top-color: var(--gold); }
+.shell .pipeline span { display: inline-block; padding-bottom: 6px; border-bottom: 1px solid var(--gold); }
+
+/* Real task stages; the moving line is indeterminate, not a fabricated percentage. */
+.task-progress { display: flex; gap: 24px; align-items: center; padding: 18px 24px; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; box-shadow: var(--surface-shadow); }
+.task-progress__art { flex: 0 0 92px; display: grid; place-items: center; background: var(--paper); border-bottom: 2px solid var(--gold); }
+.task-progress__art .dance-icon { width: 90px; height: 90px; }
+.task-progress__body { min-width: 0; flex: 1; }
+.task-progress__heading { display: flex; gap: 16px; align-items: baseline; justify-content: space-between; margin-bottom: 18px; }
+.task-progress__heading b { font-size: 14px; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.task-progress__heading > span { flex-shrink: 0; color: var(--teal); font-size: 14px; }
+.task-progress__steps { list-style: none; display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); margin: 0; padding: 0; gap: 0; }
+.task-progress__steps li { position: relative; display: grid; gap: 6px; color: var(--muted); font-size: 12px; }
+.task-progress__steps li:not(:last-child)::before { content: ""; position: absolute; left: 8px; right: 0; top: 4px; height: 1px; background: var(--line-strong); }
+.task-progress__node { z-index: 1; width: 9px; height: 9px; border: 1px solid var(--muted); background: var(--panel); transform: rotate(45deg); }
+.task-progress__steps li[data-state="done"] .task-progress__node { background: var(--teal); border-color: var(--teal); }
+.task-progress__steps li[data-state="current"] { color: var(--red); font-weight: 600; }
+.task-progress__steps li[data-state="current"] .task-progress__node { background: var(--red); border-color: var(--red); outline: 3px solid #aa492f26; }
+.task-progress__activity { height: 3px; margin-top: 16px; overflow: hidden; background: var(--paper); }
+.task-progress__activity span { display: block; width: 30%; height: 100%; background: var(--red); animation: task-activity 2s ease-in-out infinite; }
+.task-progress[data-active="false"] .task-progress__activity span { animation-play-state: paused; }
+.task-progress[data-state="completed"] .task-progress__art { display: none; }
+.task-progress[data-state="completed"] { padding-block: 14px; }
+.task-progress[data-state="completed"] .task-progress__heading { margin-bottom: 10px; }
+.task-progress[data-state="failed"] .task-progress__heading > span,
+.task-progress[data-state="disconnected"] .task-progress__heading > span { color: var(--red); }
+@keyframes task-activity { from { transform: translateX(-100%); } to { transform: translateX(340%); } }
+@media (max-width: 1119px) { .shell .learner-upload { grid-template-columns: 1fr; } }
+@media (max-width: 767px) {
+  .shell::before { inset-block-start: 80px; background-size: auto 100%; opacity: .14; }
+  .page-library > .data-feedback:not(.data-feedback--compact) { grid-template-columns: 72px minmax(0,1fr); gap: 16px; padding: 28px 20px; min-height: 220px; }
+  .page-library > .data-feedback > .dance-icon { width: 72px; height: 84px; }
+  .page-library > .data-feedback .data-feedback__title { font-size: 23px; }
+  .page-library > .data-feedback .data-feedback__action { grid-column: 2; justify-self: start; margin: 0; }
+  .page-studio[data-workbench="upgraded"] .viewer[data-layout] .timeline { padding: 12px 14px 4px; gap: 14px; }
+  .page-studio[data-workbench="upgraded"] .viewer[data-layout] .timeline button { min-width: 84px; }
+  .shell .analysis .chart, .shell .compare, .shell .structure-band, .shell .learner-upload { padding: 20px; }
+  .shell .quality-document { padding: 0 20px 20px; }
+  .shell .quality-document h2 { margin-inline: -20px; padding-inline: 20px; }
+  .shell .pipeline > div { border-left-color: var(--gold); }
+  .shell .pipeline span { border-bottom: 0; }
+  .task-progress { gap: 14px; padding: 16px; }
+  .task-progress__art { flex-basis: 48px; }
+  .task-progress__art .dance-icon { width: 48px; height: 64px; }
+  .task-progress__heading { display: grid; gap: 4px; margin-bottom: 14px; }
+  .task-progress__steps li { font-size: 11px; }
+  .task-progress__steps li > span:last-child { max-width: 3em; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .task-progress__activity span { animation: none; transform: none; width: 100%; opacity: .5; }
+  .page-library .archive .resource-row:is(:hover,:focus-within) .resource-row__surface { transform: none; }
+}
+
+/* Account for mounting thickness in the existing asymmetric media grid. */
+@media (min-width: 1024px) {
+  .page-studio[data-workbench="upgraded"] .viewer[data-layout="video"][data-pose-state="empty"] .videos {
+    grid-template-rows: calc(66px + var(--workbench-empty-height) + 10px) auto;
+  }
+}
+
+/* Disabled native file inputs remain visually hidden inside the styled label. */
+.shell .upload-control .upload-file-input:disabled { opacity: 0; }
+
+/* Palette C extends to metadata, mobile wayfinding and inherited control states. */
+.mobile-nav button.active { background: var(--paper); }
+.shell .brand-tagline { color: var(--muted); }
+.shell .viewer button:hover { background: var(--paper); }
+.shell .viewer .timeline button:hover { background: var(--ink-hover); }
+.shell .learner-upload label:hover { background: var(--action-hover); }
+.shell .vid video, .page-studio[data-workbench="upgraded"] .viewer[data-layout] .videos > .vid:first-child > video { background: var(--ink); }

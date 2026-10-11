@@ -6,26 +6,37 @@ import {
   useState,
   type ReactNode,
   type RefObject,
+  type CSSProperties,
 } from "react";
 
 import {
-  Activity,
-  CheckCircle2,
   Database,
-  Footprints,
-  LayoutDashboard,
-  LibraryBig,
   Pause,
   Play,
   Search,
-  ShieldCheck,
   UploadCloud,
-  Users,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { MediaDeck } from "@/components/dance/media-deck";
+import { TaskProgress } from "@/components/dance/task-progress";
+import { Brand } from "@/components/dance/brand";
+import BrandIntro from "@/components/dance/intro";
+import { DanceIcon } from "@/components/dance/dance-icon";
+import { ResourceRow } from "@/components/dance/resource-row";
+import { WorkbenchHeader } from "@/components/dance/workbench-header";
+import { DataFeedback } from "@/components/dance/data-feedback";
+import { useUploadSession } from "@/hooks/use-upload-session";
+import { useVideoSession } from "@/hooks/use-video-session";
+import { DANCE_API, observeVideoFrames } from "@/lib/dance-session-runtime";
+import type { DanceRecord, JobState, PoseData } from "@/lib/dance-types";
+import "@/components/dance/workbench-upgrade.css";
+import "@/components/dance/cultural-ui.css";
+import "@/components/dance/resource-folio.css";
+import "@/components/dance/handdrawn-layout.css";
+import "@/components/dance/copy-simplification.css";
+import "@/components/dance/folio-system.css";
 
 type View =
   | "studio"
@@ -33,68 +44,9 @@ type View =
   | "analysis"
   | "about";
 
-type PoseData = {
-  fps: number;
-  frames: number;
-  width: number;
-  height: number;
-  pose_2d: number[][][];
-  pose_3d: number[][][];
-};
-
-type Metrics = {
-  duration_seconds: number;
-  frames: number;
-  fps: number;
-  detection_rate: number;
-  mean_confidence: number;
-  right_shoulder_angle?: {
-    mean?: number;
-    peak?: number;
-    series?: Array<number | null>;
-  };
-  comparison?: {
-    note?: string;
-    aligned_frames?: number;
-    mean_joint_error_normalized?: number;
-    mean_right_shoulder_angle_delta?: number;
-  } | null;
-};
-
-type JobStatus =
-  | "uploading"
-  | "queued"
-  | "processing"
-  | "completed"
-  | "failed";
-
-type JobState = {
-  id?: string;
-  status: JobStatus;
-  progress?: number;
-  message?: string;
-  metrics?: Metrics;
-  artifact_urls?: Record<string, string>;
-};
-
 type NarrationSegment = {
   time: string;
   text: string;
-};
-
-type DanceRecord = {
-  dance_id: string;
-  name: string;
-  ethnic_group?: string | null;
-  region?: string | null;
-  description?: string | null;
-  video_url?: string | null;
-  pose_data_url?: string | null;
-  review_status?: string | null;
-  review_status_text?: string | null;
-  has_pose_2d?: boolean;
-  has_video?: boolean;
-  narration?: string | null;
 };
 
 type NarrationPayload = {
@@ -102,13 +54,13 @@ type NarrationPayload = {
   segments: NarrationSegment[];
 };
 
-const API = "http://127.0.0.1:8765";
+const API = DANCE_API;
 
 const nav = [
-  ["studio", "数字化工作台", LayoutDashboard],
-  ["library", "舞蹈资源库", LibraryBig],
-  ["analysis", "动作分析", Activity],
-  ["about", "项目与合规", ShieldCheck],
+  ["studio", "数字化工作台", "stage"],
+  ["library", "舞蹈资源库", "archive"],
+  ["analysis", "动作分析", "movement"],
+  ["about", "项目与合规", "record"],
 ] as const;
 
 function parseNarration(
@@ -222,124 +174,70 @@ function getArtifactUrl(
   return `${API}${url}`;
 }
 
-function usePoseData(
-  job: JobState | null,
-): PoseData | null {
-  const [loaded, setLoaded] = useState<{
-    url: string;
-    data: PoseData;
-  } | null>(null);
+type PoseResource = {
+  data: PoseData | null;
+  state: "loading" | "error" | "empty" | "ready";
+  error: string;
+  retry: () => void;
+};
 
-  const url =
-    job?.status === "completed"
-      ? getArtifactUrl(job, "pose_data")
-      : "";
-
+function usePoseData(job: JobState | null): PoseResource {
+  const [loaded, setLoaded] = useState<{ url: string; data: PoseData | null; error: string } | null>(null);
+  const [attempt, setAttempt] = useState(0);
+  const url = job?.status === "completed" ? getArtifactUrl(job, "pose_data") : "";
   useEffect(() => {
-    if (!url) {
-      return;
-    }
-
+    if (!url) return;
     const controller = new AbortController();
-
-    async function loadPoseData() {
-      const response = await fetch(url, {
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        throw new Error(
-          `姿态数据加载失败：${response.status}`,
-        );
-      }
-
-      const data =
-        (await response.json()) as PoseData;
-
-      setLoaded({
-        url,
-        data,
-      });
+    let timedOut = false;
+    let disposed = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 15000);
+    async function load() {
+      try {
+        const response = await fetch(url, { signal: controller.signal });
+        if (!response.ok) throw new Error(`姿态坐标读取失败（${response.status}），请重新加载。`);
+        const data = await response.json() as PoseData;
+        if (!Array.isArray(data.pose_2d) || !Array.isArray(data.pose_3d) || !Number.isFinite(data.fps) || data.fps <= 0) {
+          throw new Error("姿态文件格式不完整，请重新加载或重新处理该视频。");
+        }
+        if (!disposed && !controller.signal.aborted) setLoaded({ url, data, error: "" });
+      } catch (error) {
+        if (!disposed && (!controller.signal.aborted || timedOut)) setLoaded({ url, data: null, error: timedOut
+          ? "姿态坐标读取超时，请重新加载。"
+          : error instanceof TypeError ? "无法连接姿态文件，原片仍可观看。请重新加载坐标。" : getErrorMessage(error) });
+      } finally { clearTimeout(timer); }
     }
-
-    loadPoseData().catch((error: unknown) => {
-      if (
-        error instanceof DOMException &&
-        error.name === "AbortError"
-      ) {
-        return;
-      }
-
-      console.error(error);
-    });
-
-    return () => {
-      controller.abort();
-    };
-  }, [url]);
-
-  if (!url || loaded?.url !== url) {
-    return null;
-  }
-
-  return loaded.data;
+    void load();
+    return () => { disposed = true; clearTimeout(timer); controller.abort(); };
+  }, [url, attempt]);
+  const retry = () => { setLoaded(null); setAttempt((value) => value + 1); };
+  if (!url) return { data: null, state: "empty", error: "", retry };
+  if (loaded?.url !== url) return { data: null, state: "loading", error: "", retry };
+  if (loaded.error) return { data: null, state: "error", error: loaded.error, retry };
+  const data = loaded.data;
+  return { data, state: data && (data.pose_2d.length || data.pose_3d.length) ? "ready" : "empty", error: "", retry };
 }
 
-async function pollJob(
-  id: string,
-  setJob: (job: JobState) => void,
-): Promise<void> {
-  for (;;) {
-    await new Promise<void>((resolve) => {
-      window.setTimeout(resolve, 1600);
-    });
-
-    const response = await fetch(
-      `${API}/api/jobs/${id}`,
-    );
-
-    if (!response.ok) {
-      throw new Error("无法读取处理进度");
-    }
-
-    const state =
-      (await response.json()) as JobState;
-
-    setJob(state);
-
-    if (
-      state.status === "completed" ||
-      state.status === "failed"
-    ) {
-      return;
-    }
-  }
-}
-
-function Logo() {
-  return (
-    <span className="logo">
-      <i />
-      <i />
-      <i />
-    </span>
-  );
+function PoseFeedback({ resource }: { resource: PoseResource }) {
+  if (resource.state === "ready") return null;
+  return <DataFeedback compact state={resource.state}
+    title={resource.state === "loading" ? "姿态载入中" : resource.state === "error" ? "姿态载入失败" : "暂无姿态"}
+    description={resource.state === "error" ? resource.error : undefined}
+    onRetry={resource.state === "error" ? resource.retry : undefined} actionLabel="重试" />;
 }
 
 function Head({
   k,
   t,
-  p,
 }: {
   k: string;
   t: string;
-  p: string;
 }) {
   return (
-    <header className="head">
-      <p className="eyebrow">{k}</p>
+    <header className={`head catalogue-opening${k === "动作分析" ? " catalogue-opening--compact" : ""}`}>
+      <div className="catalogue-opening__copy">
       <h1>{t}</h1>
-      <p>{p}</p>
+      </div>
+      {k === "数字资源库" && <div className="catalogue-bookmark" aria-hidden="true"><DanceIcon name="archive" selected /></div>}
     </header>
   );
 }
@@ -358,64 +256,63 @@ function Card({
   );
 }
 
-function Vid({
-  t,
-  m,
-  s,
-  empty = "等待处理结果",
-  videoRef,
-}: {
-  t: string;
-  m: string;
-  s: string;
-  empty?: string;
+function Vid({ t, m, s, empty = "等待处理结果", videoRef, onPlay, onPause, onTimeUpdate, onDurationChange }: {
+  t: string; m: string; s: string; empty?: string;
   videoRef?: RefObject<HTMLVideoElement | null>;
+  onPlay?: () => void; onPause?: () => void;
+  onTimeUpdate?: (time: number) => void;
+  onDurationChange?: (duration: number) => void;
 }) {
-  return (
-    <figure className="vid">
-      <figcaption>
-        <span>
-          <b>{t}</b>
-          <small>{m}</small>
-        </span>
-
-        <em>SYNC</em>
-      </figcaption>
-
-      {s ? (
-        <video
-          ref={videoRef}
-          className="sync"
-          src={s}
-          autoPlay
-          muted
-          loop
-          playsInline
-          controls
-        />
-      ) : (
-        <div className="vid-empty">
-          <Activity />
-          <b>正在生成</b>
-          <small>{empty}</small>
-        </div>
-      )}
-    </figure>
-  );
+  const localRef = useRef<HTMLVideoElement>(null);
+  const ref = videoRef || localRef;
+  const [media, setMedia] = useState<{ source: string; state: "ready" | "error"; message?: string } | null>(null);
+  useEffect(() => {
+    const video = ref.current;
+    // SSR media may finish loading before React subscribes to loadeddata.
+    if (s && video?.readyState && video.readyState >= 2) setMedia({ source: s, state: "ready" });
+    else if (s && video?.error) setMedia({ source: s, state: "error", message: "原片读取失败，请重新读取原片或选择其他视频。" });
+  }, [s, ref]);
+  const state = media?.source === s ? media.state : "loading";
+  return <figure className="vid">
+    <figcaption><span><b>{t}</b>{m ? <small>{m}</small> : null}</span><em>{s ? state === "ready" ? "原片" : state === "error" ? "未载入" : "载入中" : "待处理"}</em></figcaption>
+    {s ? <>
+      <video ref={ref} className="sync" src={s} muted loop playsInline controls
+        onLoadedData={() => setMedia({ source: s, state: "ready" })}
+        onError={(event) => {
+          const code = event.currentTarget.error?.code;
+          setMedia({ source: s, state: "error", message: code === 3 || code === 4
+            ? "浏览器无法解码此视频，请确认 MP4 / WebM 格式或选择其他视频。"
+            : "无法读取原片，请检查资料服务连接或重新选择视频。" });
+          onPause?.();
+        }}
+        onPlay={onPlay} onPause={onPause} onEnded={onPause}
+        onTimeUpdate={(event) => onTimeUpdate?.(event.currentTarget.currentTime)}
+        onDurationChange={(event) => onDurationChange?.(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)} />
+      {state !== "ready" && <DataFeedback compact state={state}
+        title={state === "error" ? "原片载入失败" : "原片载入中"}
+        description={state === "error" ? media?.message : undefined}
+        onRetry={state === "error" ? () => { setMedia(null); ref.current?.load(); } : undefined} actionLabel="重试" />}
+    </> : <div className="vid-empty" role="status">
+      <DanceIcon name={t === "原始影像" ? "stage" : t.includes("三维") ? "depth" : "movement"} size="empty" selected />
+      <b>{empty}</b>
+    </div>}
+  </figure>;
 }
 
 function Pose2DCanvas({
   videoRef,
   data,
+  active,
 }: {
   videoRef: RefObject<HTMLVideoElement | null>;
   data: PoseData;
+  active: boolean;
 }) {
   const canvasRef =
     useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    let animationId = 0;
+    if (!active) return;
 
     const draw = () => {
       const video = videoRef.current;
@@ -427,8 +324,6 @@ function Pose2DCanvas({
         video.readyState < 2 ||
         data.pose_2d.length === 0
       ) {
-        animationId =
-          requestAnimationFrame(draw);
         return;
       }
 
@@ -439,28 +334,13 @@ function Pose2DCanvas({
         return;
       }
 
-      if (canvas.width !== data.width) {
-        canvas.width = data.width;
-      }
-
-      if (canvas.height !== data.height) {
-        canvas.height = data.height;
-      }
-
-      context.clearRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
-
-      context.drawImage(
-        video,
-        0,
-        0,
-        canvas.width,
-        canvas.height,
-      );
+      const scale = Math.min(window.devicePixelRatio || 1, 2) * Math.max(1, Math.min(canvas.clientWidth / data.width, canvas.clientHeight / data.height));
+      const width = Math.round(data.width * scale), height = Math.round(data.height * scale);
+      if (canvas.width !== width) canvas.width = width;
+      if (canvas.height !== height) canvas.height = height;
+      context.setTransform(scale, 0, 0, scale, 0, 0);
+      context.clearRect(0, 0, data.width, data.height);
+      context.drawImage(video, 0, 0, data.width, data.height);
 
       const frameIndex = Math.min(
         Math.max(
@@ -532,38 +412,31 @@ function Pose2DCanvas({
         context.fill();
       }
 
-      animationId =
-        requestAnimationFrame(draw);
     };
 
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, [data, videoRef]);
+    const video = videoRef.current;
+    if (video) {
+      const stop = observeVideoFrames(video, draw, active);
+      const observer = new ResizeObserver(draw);
+      if (canvasRef.current) observer.observe(canvasRef.current);
+      return () => { stop(); observer.disconnect(); };
+    }
+  }, [active, data, videoRef]);
 
   return (
     <figure className="vid">
       <figcaption>
         <span>
           <b>二维骨架</b>
-          <small>
-            RTMPose · COCO-17
-          </small>
         </span>
 
-        <em>SYNC</em>
+        <em>同步</em>
       </figcaption>
 
       <canvas
         ref={canvasRef}
         className="pose-canvas"
         style={{
-          display: "block",
-          width: "100%",
-          height: "100%",
-          minHeight: 320,
           background: "#07191d",
         }}
       />
@@ -574,15 +447,17 @@ function Pose2DCanvas({
 function Pose3DCanvas({
   videoRef,
   data,
+  active,
 }: {
   videoRef: RefObject<HTMLVideoElement | null>;
   data: PoseData;
+  active: boolean;
 }) {
   const canvasRef =
     useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    let animationId = 0;
+    if (!active) return;
     let coordinateLimit = 0;
 
     // 使用整个序列的统一缩放比例，
@@ -630,8 +505,6 @@ function Pose3DCanvas({
         !canvas ||
         data.pose_3d.length === 0
       ) {
-        animationId =
-          requestAnimationFrame(draw);
         return;
       }
 
@@ -652,13 +525,11 @@ function Pose3DCanvas({
       const canvasHeight = 360;
       const viewWidth = 320;
 
-      if (canvas.width !== canvasWidth) {
-        canvas.width = canvasWidth;
-      }
-
-      if (canvas.height !== canvasHeight) {
-        canvas.height = canvasHeight;
-      }
+      const scaleFactor = Math.min(window.devicePixelRatio || 1, 2) * Math.max(1, Math.min(canvas.clientWidth / canvasWidth, canvas.clientHeight / canvasHeight));
+      const pixelWidth = Math.round(canvasWidth * scaleFactor), pixelHeight = Math.round(canvasHeight * scaleFactor);
+      if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+      if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+      context.setTransform(scaleFactor, 0, 0, scaleFactor, 0, 0);
 
       context.fillStyle = "#07191d";
       context.fillRect(
@@ -880,16 +751,16 @@ function Pose3DCanvas({
         canvasHeight - 15,
       );
 
-      animationId =
-        requestAnimationFrame(draw);
     };
 
-    draw();
-
-    return () => {
-      cancelAnimationFrame(animationId);
-    };
-  }, [data, videoRef]);
+    const video = videoRef.current;
+    if (video) {
+      const stop = observeVideoFrames(video, draw, active);
+      const observer = new ResizeObserver(draw);
+      if (canvasRef.current) observer.observe(canvasRef.current);
+      return () => { stop(); observer.disconnect(); };
+    }
+  }, [active, data, videoRef]);
 
     return (
     <figure className="vid">
@@ -897,23 +768,15 @@ function Pose3DCanvas({
         <span>
           <b>估计三维姿态</b>
 
-          <small>
-            正视图 · 侧视图 · 俯视图
-          </small>
         </span>
 
-        <em>SYNC</em>
+        <em>同步</em>
       </figcaption>
 
       <canvas
         ref={canvasRef}
         className="pose-canvas"
         style={{
-          display: "block",
-          width: "100%",
-          height: "auto",
-          minHeight: 320,
-          aspectRatio: "8 / 3",
           background: "#07191d",
         }}
       />
@@ -924,77 +787,74 @@ function Pose3DCanvas({
 function Studio({
   selectedDance,
   onNarrationSaved,
+  active,
+  selectionRevision,
 }: {
+  selectionRevision: number;
   selectedDance: DanceRecord | null;
   onNarrationSaved: (danceId: string, narration: string) => void;
+  active: boolean;
 }) {
-  const [play, setPlay] = useState(true);
-  const [file, setFile] = useState("");
-  const [source, setSource] = useState("");
-  const [job, setJob] =
-    useState<JobState | null>(null);
-  const [narrationDraft, setNarrationDraft] = useState("");
-  const [narrationSaving, setNarrationSaving] = useState(false);
-  const [narrationMessage, setNarrationMessage] = useState("");
-
-  const masterVideoRef =
-    useRef<HTMLVideoElement>(null);
-
-  const poseData = usePoseData(job);
-  const datasetPoseData = usePoseData(
-    selectedDance?.pose_data_url
-      ? {
-          status: "completed",
-          artifact_urls: {
-            pose_data: selectedDance.pose_data_url,
-          },
-        }
-      : null,
-  );
-
-  useEffect(() => {
-    setNarrationDraft(selectedDance?.narration || "");
-  }, [selectedDance?.dance_id, selectedDance?.narration]);
+  const [play, setPlay] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [compact, setCompact] = useState(false);
+  const session = useUploadSession();
+  const { source, name: file, job, busy, reset } = session;
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [saving, setSaving] = useState<Record<string, boolean>>({});
+  const [messages, setMessages] = useState<Record<string, string>>({});
+  const saveControllers = useRef(new Set<AbortController>());
+  const danceId = selectedDance?.dance_id || "";
+  const previousDanceId = useRef(danceId);
+  const previousRevision = useRef(selectionRevision);
+  const narrationDraft = drafts[danceId] ?? selectedDance?.narration ?? "";
+  const narrationSaving = Boolean(saving[danceId]);
+  const narrationMessage = messages[danceId] || "";
+  const masterVideoRef = useRef<HTMLVideoElement>(null);
+  const poseResource = usePoseData(job);
+  const datasetPoseResource = usePoseData(selectedDance?.pose_data_url ? {
+    status: "completed", artifact_urls: { pose_data: selectedDance.pose_data_url },
+  } : null);
+  const poseData = poseResource.data;
+  const datasetPoseData = datasetPoseResource.data;
+  const currentPoseResource = file ? poseResource : datasetPoseResource;
+  const currentPose = file ? poseData : datasetPoseData;
 
   useEffect(() => {
-    setNarrationMessage("");
-  }, [selectedDance?.dance_id]);
+    if (previousRevision.current !== selectionRevision || (previousDanceId.current && previousDanceId.current !== danceId)) {
+      reset(job ? "样本已切换，旧任务可能仍在运行" : "", true);
+    }
+    previousDanceId.current = danceId;
+    previousRevision.current = selectionRevision;
+  }, [danceId, selectionRevision, job, reset]); // Navigation never changes this identity.
+  useEffect(() => { const controllers = saveControllers.current; return () => controllers.forEach((controller) => controller.abort()); }, []);
 
   async function saveNarration() {
-    if (!selectedDance) return;
-    setNarrationSaving(true);
-    setNarrationMessage("");
+    if (!selectedDance || saving[danceId]) return;
+    const id = selectedDance.dance_id;
+    const draft = narrationDraft;
+    const controller = new AbortController();
+    saveControllers.current.add(controller);
+    setSaving((current) => ({ ...current, [id]: true }));
+    setMessages((current) => ({ ...current, [id]: "" }));
     try {
-      const response = await fetch(
-        `${API}/api/dances/${encodeURIComponent(selectedDance.dance_id)}/narration`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ narration: narrationDraft }),
-        },
-      );
-      const result = (await response.json()) as { detail?: string };
-      if (!response.ok) {
-        throw new Error(result.detail || "解说保存失败");
-      }
-      onNarrationSaved(selectedDance.dance_id, narrationDraft);
-      setNarrationMessage("已保存到当前舞蹈记录");
+      const response = await fetch(`${API}/api/dances/${encodeURIComponent(id)}/narration`, {
+        method: "PUT", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ narration: draft }), signal: controller.signal,
+      });
+      const result = await response.json() as { detail?: string };
+      if (controller.signal.aborted) return;
+      if (!response.ok) throw new Error(result.detail || "解说保存失败，请重试。");
+      onNarrationSaved(id, draft);
+      setMessages((current) => ({ ...current, [id]: "已保存到当前舞蹈记录" }));
     } catch (error) {
-      setNarrationMessage(getErrorMessage(error));
+      if (!controller.signal.aborted) setMessages((current) => ({ ...current, [id]: error instanceof TypeError ? "资料服务未连接，草稿已保留，请恢复连接后再次保存。" : getErrorMessage(error) }));
     } finally {
-      setNarrationSaving(false);
+      saveControllers.current.delete(controller);
+      if (!controller.signal.aborted) setSaving((current) => ({ ...current, [id]: false }));
     }
   }
-
-  const busy = Boolean(
-    job &&
-      [
-        "uploading",
-        "queued",
-        "processing",
-      ].includes(job.status),
-  );
-
   const metrics = job?.metrics;
 
   const original =
@@ -1004,187 +864,49 @@ function Studio({
         `${API}/api/dances/${encodeURIComponent(
           selectedDance.dance_id,
         )}/video`
-      : "");
+      : selectedDance ? "" : "/media/qiang-demo.mp4");
+
+  useEffect(() => {
+    // The native video can load before hydration; read its current state once.
+    const timer = setTimeout(() => {
+      const video = masterVideoRef.current;
+      if (!video) return;
+      setDuration(Number.isFinite(video.duration) ? video.duration : 0);
+      setCurrentTime(video.currentTime);
+      setPlay(!video.paused);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [original]);
 
   const toggle = () => {
-    const videos = [
-      ...document.querySelectorAll<HTMLVideoElement>(
-        ".viewer .sync",
-      ),
-    ];
-
-    const anchor = videos[0];
-
-    videos.slice(1).forEach((video) => {
-      if (
-        anchor &&
-        Math.abs(
-          video.currentTime -
-            anchor.currentTime,
-        ) > 0.12
-      ) {
-        video.currentTime =
-          anchor.currentTime;
-      }
-    });
-
-    videos.forEach((video) => {
-      if (play) {
-        video.pause();
-      } else {
-        video.play().catch(() => {
-          // 浏览器拒绝自动播放时由用户手动点击。
-        });
-      }
-    });
-
-    setPlay(!play);
+    const video = masterVideoRef.current;
+    if (!video) return;
+    if (video.paused) void video.play().catch(() => setPlay(false));
+    else video.pause();
   };
+  const formatTime = (seconds: number) => `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${Math.floor(seconds % 60).toString().padStart(2, "0")}`;
 
-  const upload = async (
-    selectedFile?: File,
-  ) => {
-    if (!selectedFile) {
-      return;
-    }
-
-    if (
-      selectedFile.size >
-      300 * 1024 * 1024
-    ) {
-      setJob({
-        status: "failed",
-        progress: 0,
-        message: "视频不能超过 300 MB",
-      });
-
-      return;
-    }
-
-    setFile(selectedFile.name);
-    setSource(
-      URL.createObjectURL(selectedFile),
-    );
-
-    setJob({
-      status: "uploading",
-      progress: 1,
-      message: "正在上传到本地姿态服务",
-    });
-
-    const body = new FormData();
-    body.append("video", selectedFile);
-
-    try {
-      const response = await fetch(
-        `${API}/api/jobs`,
-        {
-          method: "POST",
-          body,
-        },
-      );
-
-      const state =
-        (await response.json()) as JobState;
-
-      if (!response.ok) {
-        throw new Error(
-          state.message || "上传失败",
-        );
-      }
-
-      if (!state.id) {
-        throw new Error(
-          "后端没有返回任务编号",
-        );
-      }
-
-      setJob(state);
-
-      await pollJob(
-        state.id,
-        setJob,
-      );
-    } catch (error: unknown) {
-      setJob({
-        status: "failed",
-        progress: 0,
-        message:
-          error instanceof TypeError
-            ? "无法连接本地姿态服务，请先运行 start_pose_service.ps1"
-            : getErrorMessage(error),
-      });
-    }
+  const { playError } = useVideoSession(masterVideoRef, original, active, true);
+  const upload = (selectedFile?: File) => {
+    if (selectedFile) setCompact(true);
+    return session.upload(selectedFile);
   };
 
   return (
-    <div className="stack">
-      <section className="head action-head">
-        <div>
-          <p className="eyebrow">
-            民族舞蹈数字化工作台
-          </p>
+    <div className="stack page-studio" data-workbench="upgraded">
+      <WorkbenchHeader compact={compact} onToggle={() => setCompact((current) => !current)} busy={busy}
+        onUpload={upload} currentLabel={file ? "学习者上传视频" : selectedDance?.name || "本地演示片段"} />
+      {session.notice && <DataFeedback compact state="empty" title={session.notice} />}
+      {session.monitorError && <DataFeedback compact state="error" title="进度未连接" description={session.monitorError} onRetry={session.retryMonitor} actionLabel="重连任务" />}
+      {job?.status === "failed" && <DataFeedback compact state="error" title="处理失败" description={job.message} onRetry={() => session.retryUpload()} actionLabel="重新上传" />}
 
-          <h1>
-            上传一段视频，生成二维与三维姿态
-          </h1>
+      {job && <TaskProgress job={job} name={file || "上传任务"} disconnected={Boolean(session.monitorError)} active={active} />}
 
-          <p>
-            上传后立即显示原始影像；本机完成处理后，
-            二维骨架和估计三维姿态会自动载入。
-          </p>
-        </div>
-
-        <Button asChild>
-          <label>
-            <UploadCloud />
-
-            {busy
-              ? "处理中…"
-              : "上传舞蹈视频"}
-
-            <input
-              hidden
-              disabled={busy}
-              type="file"
-              accept="video/mp4,video/webm,.mp4,.webm"
-              onChange={(event) =>
-                upload(
-                  event.target.files?.[0],
-                )
-              }
-            />
-          </label>
-        </Button>
-      </section>
-
-      {job && (
-        <div
-          className={`upload ${job.status}`}
-        >
-          <b>{file || "上传任务"}</b>
-
-          <span>
-            {job.status === "completed"
-              ? "二维与三维姿态数据已生成"
-              : job.message}
-          </span>
-
-          <Progress
-            value={job.progress || 0}
-          />
-
-          <code>
-            {job.progress || 0}%
-          </code>
-        </div>
-      )}
-
-      <section className="viewer">
+      <section className="viewer" data-layout="interactive" data-pose-state={currentPoseResource.state === "ready" ? "ready" : "empty"}>
         <header>
           <div>
             <code>
-              {file ? "USER" : selectedDance?.dance_id || "未选择样本"}
+              {file ? "USER" : selectedDance?.dance_id || "DEMO"}
             </code>
 
             <p>
@@ -1193,149 +915,70 @@ function Studio({
                   ? "学习者上传视频"
                   : selectedDance
                     ? `${selectedDance.ethnic_group || "民族待补充"} · ${selectedDance.name}`
-                    : "请先在资源库选择舞蹈样本"}
+                    : "演示片段"}
               </b>
 
               <small>
                 {metrics
                   ? `${metrics.duration_seconds} 秒 · ${metrics.frames} 帧 · ${metrics.fps} FPS`
-                  : "9.83 秒 · 295 帧 · 30 FPS"}
+                  : duration ? `${duration.toFixed(2)} 秒 · ${selectedDance ? "示范影像" : "播放器体验"}` : "正在读取影像"}
               </small>
             </p>
           </div>
 
-          <button
-            onClick={toggle}
-            disabled={
-              file ? !poseData : false
-            }
-          >
-            {play ? <Pause /> : <Play />}
 
-            {play
-              ? "同步暂停"
-              : "同步播放"}
-          </button>
         </header>
 
-        <div className="videos">
+        <div className="timeline">
+          <button onClick={toggle} disabled={!original}>
+            {play ? <Pause /> : <Play />}
+            {play ? "暂停" : "播放"}
+          </button>
+          <div className="timeline__seek">
+            <p>
+              <span>{formatTime(currentTime)}</span>
+              <b>{currentPoseResource.state === "ready" ? "姿态就绪"
+                : currentPoseResource.state === "loading" ? "姿态载入中"
+                : currentPoseResource.state === "error" ? "姿态载入失败"
+                : busy ? "处理中" : selectedDance?.name || "演示片段"}</b>
+              <span>{formatTime(duration)}</span>
+            </p>
+            <input type="range" aria-label="同步播放进度" min={0} max={duration || 0} step="0.05" value={Math.min(currentTime, duration)} disabled={!duration}
+              style={{ "--seek-progress": `${duration ? Math.min(currentTime / duration, 1) * 100 : 0}%` } as CSSProperties}
+              onChange={(event) => { const next = Number(event.target.value); if (masterVideoRef.current) masterVideoRef.current.currentTime = next; setCurrentTime(next); }} />
+          </div>
+        </div>
+
+        <MediaDeck active={active} ready={{ original: Boolean(original), pose2d: Boolean(currentPose?.pose_2d.length), pose3d: Boolean(currentPose?.pose_3d.length) }} media={{
+          original: (
           <Vid
             t="原始影像"
-            m={
-              file
-                ? "刚刚上传的本地视频"
-                : "文化与动作语境"
-            }
+            m=""
             s={original}
             videoRef={masterVideoRef}
-          />
+            onPlay={() => setPlay(true)}
+            onPause={() => setPlay(false)}
+            onTimeUpdate={setCurrentTime}
+            onDurationChange={setDuration}
+          />),
+          pose2d: currentPose?.pose_2d.length ? <Pose2DCanvas videoRef={masterVideoRef} data={currentPose} active={active} />
+            : <Vid t="二维骨架" m="" s="" empty={currentPoseResource.state === "loading" ? "载入中" : currentPoseResource.state === "error" ? "载入失败" : busy ? "处理中" : "暂无二维姿态"} />,
+          pose3d: currentPose?.pose_3d.length ? <Pose3DCanvas videoRef={masterVideoRef} data={currentPose} active={active} />
+            : <Vid t="估计三维姿态" m="" s="" empty={currentPoseResource.state === "loading" ? "载入中" : currentPoseResource.state === "error" ? "载入失败" : busy ? "处理中" : "暂无三维姿态"} />,
+        }} />
 
-          {file ? (
-            poseData ? (
-              <Pose2DCanvas
-                videoRef={masterVideoRef}
-                data={poseData}
-              />
-            ) : (
-              <Vid
-                t="二维骨架"
-                m="RTMPose · COCO-17"
-                s=""
-                empty={
-                  job?.message ||
-                  "等待二维姿态数据"
-                }
-              />
-            )
-            ) : datasetPoseData ? (
-              <Pose2DCanvas
-                videoRef={masterVideoRef}
-                data={datasetPoseData}
-              />
-            ) : (
-            <Vid
-              t="二维骨架"
-              m="RTMPose · COCO-17"
-                s=""
-                empty="该样本尚未关联二维姿态结果"
-            />
-          )}
-
-          {file ? (
-            poseData ? (
-              <Pose3DCanvas
-                videoRef={masterVideoRef}
-                data={poseData}
-              />
-            ) : (
-              <Vid
-                t="估计三维姿态"
-                m="MotionAGFormer · H36M-17"
-                s=""
-                empty={
-                  job?.message ||
-                  "等待三维姿态数据"
-                }
-              />
-            )
-            ) : datasetPoseData ? (
-              <Pose3DCanvas
-                videoRef={masterVideoRef}
-                data={datasetPoseData}
-              />
-            ) : (
-            <Vid
-              t="估计三维姿态"
-              m="MotionAGFormer · H36M-17"
-                s=""
-                empty="该样本尚未关联三维姿态结果"
-            />
-          )}
-        </div>
-
-        <div className="timeline">
-          <p>
-            <span>00:00</span>
-
-            <b>
-              {job?.status === "completed"
-                ? poseData
-                  ? "姿态结果已载入"
-                  : "正在载入姿态坐标"
-                : file
-                  ? "正在建立姿态结果"
-                  : selectedDance?.name || "等待选择舞蹈样本"}
-            </b>
-
-            <span>
-              {metrics
-                ? `00:${String(
-                    metrics.duration_seconds,
-                  ).padStart(5, "0")}`
-                : "—"}
-            </span>
-          </p>
-
-          <i />
-
-          <small>
-            {file
-              ? "原始视频　二维提取　遮挡修复　三维估计　结果载入"
-              : selectedDance?.description || "该样本尚无动作摘要"}
-          </small>
-        </div>
+        {(currentPoseResource.state === "loading" || currentPoseResource.state === "error" || job?.status === "completed") && <PoseFeedback resource={currentPoseResource} />}
+        {playError && <DataFeedback compact state="empty" title={playError} />}
+        {file && <Button variant="outline" type="button" onClick={() => session.reset("已返回当前样本", true)}>返回样本</Button>}
+        {!file && selectedDance?.description && <div className="viewer-note"><small>{selectedDance.description}</small></div>}
       </section>
 
       {!file && selectedDance && (
-        <section className="cols single">
-          <Card>
+        <section className="cols single narration-section">
+          <Card c="narration-document">
             <div className="title">
               <span>
-                <p className="eyebrow">
-                  AI 动作解说
-                </p>
-
-                <h2>动作分段摘要</h2>
+                <h2>动作解说</h2>
               </span>
 
               <Badge className="ai">
@@ -1360,17 +1003,17 @@ function Studio({
                   </li>
                 ))
               ) : (
-                <li>该样本还没有保存动作解说。</li>
+                <li>暂无解说</li>
               )}
             </ul>
 
             <label className="narration-editor">
-              <span>编辑或粘贴该样本的 AI 解说（每行一段，可写“时间｜内容”）</span>
+              <span>编辑解说</span>
               <textarea
                 value={narrationDraft}
-                onChange={(event) => setNarrationDraft(event.target.value)}
+                onChange={(event) => setDrafts((current) => ({ ...current, [danceId]: event.target.value }))}
                 rows={5}
-                placeholder="例如：00:00–00:05｜双臂向两侧舒展，重心保持稳定。"
+                placeholder="填写动作解说，每行一段"
               />
             </label>
             <div className="narration-save">
@@ -1379,14 +1022,11 @@ function Studio({
                 onClick={() => void saveNarration()}
                 disabled={narrationSaving}
               >
-                {narrationSaving ? "正在保存…" : "保存当前样本解说"}
+                {narrationSaving ? "保存中…" : "保存解说"}
               </Button>
               {narrationMessage && <small role="status">{narrationMessage}</small>}
             </div>
 
-            <small className="muted">
-              解说内容对应 {selectedDance.dance_id}，不代替专业舞蹈教学判断。
-            </small>
           </Card>
         </section>
       )}
@@ -1401,6 +1041,7 @@ function Library({
   error,
   onSelectDance,
   onCompare,
+  onRetry,
 }: {
   records: DanceRecord[];
   selectedDanceId: string;
@@ -1408,16 +1049,19 @@ function Library({
   error: string;
   onSelectDance: (danceId: string) => void;
   onCompare: (danceId: string) => void;
+  onRetry: () => void;
 }) {
   const [query, setQuery] =
     useState("");
 
+  const filtered = records.filter((record) => [record.dance_id, record.name, record.ethnic_group || "", record.region || "", record.review_status_text || ""]
+    .join(" ").toLowerCase().includes(query.trim().toLowerCase()));
+
   return (
-    <div className="stack">
+    <div className="stack page-library">
       <Head
         k="数字资源库"
-        t="把动作、资料与授权记录放在一起"
-        p={`当前读取 ${records.length} 条数据库记录；核验状态和视频均来自后端数据。`}
+        t="舞蹈资源库"
       />
 
       <label className="search">
@@ -1428,291 +1072,92 @@ function Library({
           onChange={(event) =>
             setQuery(event.target.value)
           }
-          placeholder="搜索样本、民族或动作"
+          aria-label="搜索舞蹈、民族或地区"
+          placeholder="搜索舞蹈、民族或地区"
         />
       </label>
 
-      {error && (
-        <p role="alert" className="muted">
-          {error}
-        </p>
-      )}
+      {loading ? <DataFeedback state="loading" title="资料载入中" />
+        : error ? <DataFeedback state="error" title="资料未连接" description={records.length ? "显示上次读取的资料" : "暂时无法读取舞蹈资料"} onRetry={onRetry} actionLabel="重试" />
+        : records.length === 0 ? <DataFeedback state="empty" title="暂无资料" />
+        : filtered.length === 0 ? <DataFeedback state="no-match" title="无匹配资料" onRetry={() => setQuery("")} actionLabel="清除筛选" />
+        : <p className="muted" role="status">{query.trim() ? `找到 ${filtered.length} / ${records.length} 条匹配记录` : `共 ${records.length} 条舞蹈记录`}</p>}
 
-      {loading && (
-        <p className="muted">正在读取数据库记录…</p>
-      )}
-
-      <section className="resources">
-        {records
-          .filter((record) =>
-            [
-              record.dance_id,
-              record.name,
-              record.ethnic_group || "",
-              record.region || "",
-              record.review_status_text || "",
-            ]
-              .join(" ")
-              .toLowerCase()
-              .includes(query.trim().toLowerCase()),
-          )
-          .map((record) => (
-            <article key={record.dance_id}>
-              <div className="cover">
-                <Footprints />
-                <code>{record.dance_id}</code>
-              </div>
-
-              <div>
-                <p>
-                  <Badge
-                    className={
-                      record.review_status === "verified"
-                        ? "verified"
-                        : "pending"
-                    }
-                  >
-                    {record.review_status_text || "待核验"}
-                  </Badge>
-
-                  <span>
-                    {record.has_pose_2d
-                      ? "姿态数据已就绪"
-                      : "姿态数据待处理"}
-                  </span>
-                </p>
-
-                <h2>{record.name}</h2>
-
-                <small>
-                  {[record.ethnic_group, record.region, record.description]
-                    .filter(Boolean)
-                    .join(" · ") || "尚未补充舞蹈资料"}
-                </small>
-
-                <div className="resource-actions">
-                  <Button
-                    type="button"
-                    variant={
-                      selectedDanceId === record.dance_id
-                        ? "default"
-                        : "outline"
-                    }
-                    onClick={() => onSelectDance(record.dance_id)}
-                  >
-                    {selectedDanceId === record.dance_id
-                      ? "当前样本"
-                      : "设为当前样本"}
-                  </Button>
-
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={!record.has_pose_2d}
-                    onClick={() => onCompare(record.dance_id)}
-                    title={
-                      record.has_pose_2d
-                        ? "选择此标准动作并进入动作比对"
-                        : "需先为该样本生成二维姿态数据"
-                    }
-                  >
-                    用此动作进行比对
-                  </Button>
-                </div>
-              </div>
-            </article>
+      <section className="archive" aria-label="舞蹈资料目录">
+        {filtered          .map((record) => (
+            <ResourceRow key={record.dance_id} record={record}
+              selectedDanceId={selectedDanceId}
+              onSelectDance={onSelectDance} onCompare={onCompare} />
           ))}
-        {!loading && !error && records.length === 0 && (
-          <p className="muted">数据库中还没有舞蹈记录。</p>
-        )}
       </section>
+
     </div>
   );
 }
 
-function Analysis({
-  records,
-  selectedDance,
-  onSelectDance,
-}: {
-  records: DanceRecord[];
-  selectedDance: DanceRecord | null;
+function Analysis({ records, selectedDance, onSelectDance, loading, error, onRetry, active, selectionRevision }: {
+  records: DanceRecord[]; selectedDance: DanceRecord | null;
   onSelectDance: (danceId: string) => void;
+  loading: boolean; error: string; onRetry: () => void; active: boolean; selectionRevision: number;
 }) {
-  const [source, setSource] =
-    useState("");
-
-  const [name, setName] =
-    useState("");
-
-  const [job, setJob] =
-    useState<JobState | null>(null);
-
-  const videoRef =
-    useRef<HTMLVideoElement>(null);
-
-  const poseData =
-    usePoseData(job);
-
-  const busy = Boolean(
-    job &&
-      [
-        "uploading",
-        "queued",
-        "processing",
-      ].includes(job.status),
-  );
-
+  const session = useUploadSession();
+  const { source, name, job, busy, reference: taskReference, reset } = session;
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const poseResource = usePoseData(job);
+  const poseData = poseResource.data;
   const metrics = job?.metrics;
-
-  const series = (
-    metrics?.right_shoulder_angle
-      ?.series || [
-      28,
-      42,
-      36,
-      70,
-      58,
-      102,
-      84,
-      118,
-      91,
-      132,
-      105,
-      141,
-      119,
-    ]
-  ).filter(
-    (value): value is number =>
-      value !== null,
-  );
-
-  const points = series
-    .map((value, index) => {
-      const x =
-        series.length === 1
-          ? 0
-          : (index /
-              (series.length - 1)) *
-            480;
-
-      const y =
-        142 -
-        (Math.min(180, value) /
-          180) *
-          118;
-
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  const upload = async (
-    selectedFile?: File,
-  ) => {
-    if (!selectedFile) {
-      return;
+  const danceId = selectedDance?.dance_id || "";
+  const previousDanceId = useRef(danceId);
+  const previousRevision = useRef(selectionRevision);
+  const { playError } = useVideoSession(videoRef, source, active);
+  const [videoError, setVideoError] = useState<{ source: string; message: string } | null>(null);
+  useEffect(() => {
+    if ((previousRevision.current !== selectionRevision || (previousDanceId.current && previousDanceId.current !== danceId)) && job) {
+      reset("示范已切换，请重新上传；原片已保留，旧任务可能仍在运行");
     }
+    previousDanceId.current = danceId;
+    previousRevision.current = selectionRevision;
+  }, [danceId, selectionRevision, job, reset]);
 
-    if (
-      selectedFile.size >
-      300 * 1024 * 1024
-    ) {
-      setJob({
-        status: "failed",
-        progress: 0,
-        message: "视频不能超过 300 MB",
-      });
+  const series = metrics?.right_shoulder_angle?.series || [];
 
-      return;
-    }
+  const points = series.map((value, index) => {
+    if (value === null || !Number.isFinite(value)) return "";
+    const x = series.length <= 1 ? 0 : index / (series.length - 1) * 480;
+    const y = 142 - Math.min(180, Math.max(0, value)) / 180 * 118;
+    const previous = series[index - 1];
+    return `${index === 0 || previous === null || !Number.isFinite(previous) ? "M" : "L"}${x},${y}`;
+  }).join(" ");
 
-    setName(selectedFile.name);
-
-    setSource(
-      URL.createObjectURL(selectedFile),
-    );
-
-    setJob({
-      status: "uploading",
-      progress: 1,
-      message: "正在上传到本地姿态服务",
-    });
-
-    const body = new FormData();
-    body.append("video", selectedFile);
-    if (selectedDance) {
-      body.append("dance_id", selectedDance.dance_id);
-    }
-    body.append(
-      "compare_with_reference",
-      selectedDance?.has_pose_2d ? "true" : "false",
-    );
-
-    try {
-      const response = await fetch(
-        `${API}/api/jobs`,
-        {
-          method: "POST",
-          body,
-        },
-      );
-
-      const state =
-        (await response.json()) as JobState;
-
-      if (!response.ok) {
-        throw new Error(
-          state.message || "上传失败",
-        );
-      }
-
-      if (!state.id) {
-        throw new Error(
-          "后端没有返回任务编号",
-        );
-      }
-
-      setJob(state);
-
-      await pollJob(
-        state.id,
-        setJob,
-      );
-    } catch (error: unknown) {
-      setJob({
-        status: "failed",
-        progress: 0,
-        message:
-          error instanceof TypeError
-            ? "无法连接本地姿态服务，请先运行 start_pose_service.ps1"
-            : getErrorMessage(error),
-      });
-    }
-  };
+  const upload = (selectedFile?: File) => session.upload(selectedFile, selectedDance ? {
+    danceId: selectedDance.dance_id, name: selectedDance.name, compared: Boolean(selectedDance.has_pose_2d),
+  } : null, true);
 
   return (
-    <div className="stack">
+    <div className="stack page-analysis">
       <Head
         k="动作分析"
-        t="上传学习者视频，生成二维与三维姿态"
-        p="本机依次运行 RTMPose、遮挡修复与 MotionAGFormer，并输出可追溯的动作指标。"
+        t="动作分析"
       />
 
-      <Card>
-        <p className="eyebrow">标准动作</p>
-        <h2>选择本次比对的示范样本</h2>
+      {loading ? <DataFeedback compact state="loading" title="示范载入中" />
+        : error ? <DataFeedback compact state="error" title="示范资料未连接" onRetry={onRetry} actionLabel="重试" />
+        : records.length === 0 ? <DataFeedback compact state="empty" title="暂无示范" /> : null}
+      {session.notice && <DataFeedback compact state="empty" title={session.notice} />}
+      {session.monitorError && <DataFeedback compact state="error" title="进度未连接" description={session.monitorError} onRetry={session.retryMonitor} actionLabel="重连任务" />}
+      {job?.status === "failed" && <DataFeedback compact state="error" title="处理失败" description={job.message} onRetry={() => session.retryUpload(true)} actionLabel="重新上传" />}
+
+      <section className="analysis-preparation" aria-label="准备分析">
+      <Card c="reference-selection">
+        <h2>选择示范</h2>
         <label className="search">
-          <Footprints />
+          <DanceIcon name="archive" size="small" selected />
           <select
+            aria-label="选择比对示范样本"
             value={selectedDance?.dance_id || ""}
-            onChange={(event) => {
-              onSelectDance(event.target.value);
-              setJob(null);
-            }}
+            onChange={(event) => onSelectDance(event.target.value)}
           >
-            <option value="" disabled>
-              请选择数据库中的舞蹈记录
-            </option>
+            <option value="">独立分析（不比对）</option>
             {records.map((record) => (
               <option
                 key={record.dance_id}
@@ -1727,44 +1172,33 @@ function Analysis({
         <small className="muted">
           {selectedDance
             ? selectedDance.has_pose_2d
-              ? `本次结果将与 ${selectedDance.dance_id} 的二维姿态进行比对。`
-              : `当前样本 ${selectedDance.dance_id} 尚无二维姿态，本次会生成用户视频姿态但不计算比对指标。`
-            : "请先添加舞蹈记录后再选择标准动作。"}
+              ? `比对示范：${selectedDance.dance_id}`
+              : "示范暂无姿态，仅独立分析"
+            : "未绑定示范，仅独立分析"}
         </small>
       </Card>
 
       <section className="learner-upload">
         <div>
-          <p className="eyebrow">
-            学习者视频
-          </p>
-
           <h2>
-            上传视频并启动姿态处理
+            上传视频
           </h2>
 
-          <p>
-            视频仅保存在本机任务目录，
-            不会覆盖资源库原始数据。
-            建议先使用 10–30 秒单人全身视频。
-          </p>
-
-          <label>
+          <label className="upload-control">
             <UploadCloud />
-            选择本地视频
+            上传并处理
 
             <input
-              hidden
+              className="upload-file-input"
+              aria-label="上传学习者视频"
               type="file"
               accept="video/mp4,video/webm,.mp4,.webm"
               disabled={busy}
-              onChange={(event) =>
-                upload(
-                  event.target.files?.[0],
-                )
-              }
+              onChange={(event) => { void upload(event.target.files?.[0]); event.target.value = ""; }}
             />
           </label>
+
+          <p className="upload-requirements">MP4 / WebM · ≤300 MiB · 选后即处理</p>
 
           {name && (
             <small>
@@ -1779,71 +1213,30 @@ function Analysis({
             src={source}
             controls
             playsInline
+            onLoadedData={() => setVideoError(null)}
+            onError={(event) => setVideoError({ source, message: [3, 4].includes(event.currentTarget.error?.code || 0)
+              ? "浏览器无法解码此视频，请选择可播放的 MP4 / WebM 视频。" : "上传原片读取失败，请重新选择该文件。" })}
           />
         ) : (
           <div className="drop">
-            <UploadCloud />
-            <b>尚未上传用户视频</b>
-            <small>
-              支持 MP4、WebM，最大 300 MB
-            </small>
+            <DanceIcon name="stage" size="empty" selected />
+            <b>待上传</b>
           </div>
         )}
       </section>
+      {videoError?.source === source && <DataFeedback compact state="error" title="原片无法播放" description={videoError.message}
+        onRetry={() => { setVideoError(null); videoRef.current?.load(); }} actionLabel="重试" />}
+      {playError && <DataFeedback compact state="empty" title={playError} />}
 
-      {job && (
-        <section
-          className={`job-state ${job.status}`}
-        >
-          <div>
-            <b>
-              {job.status === "completed"
-                ? "处理完成"
-                : job.status === "failed"
-                  ? "处理失败"
-                  : job.message}
-            </b>
+      </section>
 
-            <span>
-              {job.status === "completed"
-                ? "二维、三维坐标和指标已生成"
-                : job.message}
-            </span>
-          </div>
-
-          <Progress
-            value={job.progress || 0}
-          />
-
-          <code>
-            {job.progress || 0}%
-          </code>
-        </section>
-      )}
+      {job && <TaskProgress job={job} name={name || "独立分析"} disconnected={Boolean(session.monitorError)} active={active} />}
 
       {job?.status === "completed" && (
         <section className="result-videos">
-          {poseData ? (
-            <>
-              <Pose2DCanvas
-                videoRef={videoRef}
-                data={poseData}
-              />
-
-              <Pose3DCanvas
-                videoRef={videoRef}
-                data={poseData}
-              />
-            </>
-          ) : (
-            <div className="vid-empty">
-              <Activity />
-              <b>正在载入姿态坐标</b>
-              <small>
-                正在读取 pose_data.json
-              </small>
-            </div>
-          )}
+          {poseData?.pose_2d.length ? <Pose2DCanvas videoRef={videoRef} data={poseData} active={active} /> : null}
+          {poseData?.pose_3d.length ? <Pose3DCanvas videoRef={videoRef} data={poseData} active={active} /> : null}
+          <PoseFeedback resource={poseResource} />
         </section>
       )}
 
@@ -1851,10 +1244,6 @@ function Analysis({
         <Card c="wide chart">
           <div className="title">
             <span>
-              <p className="eyebrow">
-                关节角度
-              </p>
-
               <h2>右肩展开角度</h2>
             </span>
 
@@ -1862,116 +1251,59 @@ function Analysis({
               峰值{" "}
               {metrics
                 ?.right_shoulder_angle
-                ?.peak ?? 148}
+                ?.peak ?? "—"}
               °
             </b>
           </div>
 
-          <svg viewBox="0 0 480 150">
-            <polyline
-              points={points}
+          {series.some((value) => value !== null && Number.isFinite(value)) ? <svg viewBox="0 0 480 150" role="img" aria-label="右肩展开角度随视频时间的变化">
+            <path
+              d={points}
               fill="none"
-              stroke="#37d4c3"
+              stroke="var(--teal)"
               strokeWidth="3"
             />
-          </svg>
+          </svg> : <div className="chart-empty">待处理</div>}
         </Card>
 
-        <Card>
-          <p className="eyebrow">
-            处理质量
-          </p>
+        <section className="quality-document">
+          <h2>识别质量</h2>
+          <dl>
+            <div><dt>人体检出率</dt><dd>{metrics ? `${metrics.detection_rate}%` : "—"}</dd></div>
+            <div><dt>平均置信度</dt><dd>{metrics ? metrics.mean_confidence : "—"}</dd></div>
+          </dl>
+        </section>
 
-          <h2>
-            {metrics
-              ? `${metrics.detection_rate}%`
-              : "等待上传"}
-          </h2>
-
-          <div className="orbit">
-            <i />
-            <i />
-            <i />
-            <b />
-          </div>
-
-          <p className="muted">
-            {metrics
-              ? `人体检出率 · 平均置信度 ${metrics.mean_confidence}`
-              : "完成处理后显示检出率与置信度。"}
-          </p>
-        </Card>
-
-        <Card>
-          <p className="eyebrow">
-            视频结构
-          </p>
-
-          <h2>
-            {metrics
-              ? `${metrics.frames} 帧`
-              : "动作时序"}
-          </h2>
-
-          <div className="bars">
-            {[
-              42,
-              64,
-              53,
-              86,
-              70,
-              48,
-              76,
-              58,
-              39,
-              67,
-            ].map((height, index) => (
-              <i
-                key={index}
-                style={{
-                  height: `${height}%`,
-                }}
-              />
-            ))}
-          </div>
-
-          <p className="muted">
-            {metrics
-              ? `${metrics.duration_seconds} 秒 · ${metrics.fps} FPS`
-              : "完成处理后显示帧数、时长与节奏。"}
-          </p>
-        </Card>
+        <section className="structure-band" aria-label="视频结构">
+          <h2>视频结构</h2>
+          <dl>
+            <div><dt>帧数</dt><dd>{metrics ? metrics.frames : "—"}<small> 帧</small></dd></div>
+            <div><dt>时长</dt><dd>{metrics ? metrics.duration_seconds : "—"}<small> 秒</small></dd></div>
+            <div><dt>帧率</dt><dd>{metrics ? metrics.fps : "—"}<small> FPS</small></dd></div>
+          </dl>
+        </section>
 
         <article className="compare">
           <div>
-            <Badge className="ai">
-              对比结果
-            </Badge>
-
             <h2>
-              {selectedDance
-                ? `学习者与 ${selectedDance.dance_id} 示范片段`
-                : "用户视频动作分析"}
+              {job ? taskReference?.compared ? `示范比对 · ${taskReference.danceId}` : "独立分析" : "分析结果"}
             </h2>
 
             <p>
-              {metrics?.comparison?.note ||
-                "上传完成后按时间归一化，对齐关节轨迹与右肩角度。"}
+              {!job ? "待处理" : taskReference?.compared ? metrics?.comparison ? "比对完成" : job.status === "completed" ? "暂无比对结果" : job.status === "failed" ? "比对未完成" : "等待比对结果" : "未进行示范比对"}
             </p>
           </div>
 
           <div>
             <span>
-              <CheckCircle2 />
               时间对齐：
               {metrics?.comparison
                 ?.aligned_frames ??
-                "待处理"}{" "}
+                "—"}{" "}
               帧
             </span>
 
             <span>
-              <CheckCircle2 />
               归一化关节误差：
               {metrics?.comparison
                 ?.mean_joint_error_normalized ??
@@ -1979,7 +1311,6 @@ function Analysis({
             </span>
 
             <span>
-              <CheckCircle2 />
               右肩平均角度差：
               {metrics?.comparison
                 ?.mean_right_shoulder_angle_delta ??
@@ -1989,10 +1320,6 @@ function Analysis({
                 : ""}
             </span>
 
-            <span>
-              <CheckCircle2 />
-              结果仅作可测量反馈
-            </span>
           </div>
         </article>
       </section>
@@ -2000,19 +1327,19 @@ function Analysis({
   );
 }
 
-function About() {
+function About({ records, loading, error, onRetry }: { records: DanceRecord[]; loading: boolean; error: string; onRetry: () => void }) {
   const cards = [
     [
-      Database,
+      "archive",
       "当前数据",
       [
-        "原始视频：21 段",
-        "完整结果：8 段",
+        `原始视频：${loading ? "载入中" : error ? records.length ? `上次读取 ${records.filter((record) => record.has_video).length} 段` : "—" : `${records.filter((record) => record.has_video).length} 段`}`,
+        `二维姿态：${loading ? "载入中" : error ? records.length ? `上次读取 ${records.filter((record) => record.has_pose_2d).length} 段` : "—" : `${records.filter((record) => record.has_pose_2d).length} 段`}`,
         "专业复核：待开展",
       ],
     ],
     [
-      ShieldCheck,
+      "record",
       "提交前检查",
       [
         "肖像与视频授权",
@@ -2021,7 +1348,7 @@ function About() {
       ],
     ],
     [
-      Users,
+      "depth",
       "内容分级",
       [
         "权威资料可核验",
@@ -2032,12 +1359,15 @@ function About() {
   ] as const;
 
   return (
-    <div className="stack">
+    <div className="stack page-about">
       <Head
         k="项目与合规"
-        t="让每一个结果都能追溯"
-        p="技术、数据、文化资料和 AI 使用过程均保留来源与状态记录。"
+        t="项目与合规"
       />
+
+      {loading ? <DataFeedback compact state="loading" title="资料载入中" />
+        : error ? <DataFeedback compact state="error" title="资料未连接" onRetry={onRetry} actionLabel="重试" />
+        : records.length === 0 ? <DataFeedback compact state="empty" title="暂无资料" /> : null}
 
       <section className="pipeline">
         {[
@@ -2075,16 +1405,15 @@ function About() {
           <div key={item[0]}>
             <span>{item[0]}</span>
             <b>{item[1]}</b>
-            <small>{item[2]}</small>
           </div>
         ))}
       </section>
 
-      <section className="about">
+      <section className="about-document">
         {cards.map(
-          ([Icon, title, lines]) => (
-            <Card key={title}>
-              <Icon />
+          ([icon, title, lines]) => (
+            <Card key={title} c="about-document__section">
+              <DanceIcon name={icon} selected />
               <h2>{title}</h2>
 
               <ul>
@@ -2109,9 +1438,15 @@ export default function Home() {
   const [recordsLoading, setRecordsLoading] = useState(true);
   const [recordsError, setRecordsError] = useState("");
   const [selectedDanceId, setSelectedDanceId] = useState("");
+  const [selectionRevision, setSelectionRevision] = useState(0);
+  const [replayKey, setReplayKey] = useState(0);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    let timedOut = false;
+    let disposed = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 12000);
 
     async function loadRecords() {
       try {
@@ -2122,6 +1457,8 @@ export default function Home() {
           throw new Error(`舞蹈资源读取失败（${response.status}）`);
         }
         const data = (await response.json()) as DanceRecord[];
+        if (disposed || controller.signal.aborted) return;
+        if (!Array.isArray(data)) throw new Error("舞蹈资源返回格式不完整，请重新连接资料。");
         setRecords(data);
         setSelectedDanceId((current) =>
           current && data.some((record) => record.dance_id === current)
@@ -2130,140 +1467,106 @@ export default function Home() {
         );
         setRecordsError("");
       } catch (error) {
-        if (!controller.signal.aborted) {
-          setRecordsError(getErrorMessage(error));
+        if (!disposed && (!controller.signal.aborted || timedOut)) {
+          setRecordsError(timedOut ? "资料读取超时" : error instanceof TypeError ? "无法连接本机资料服务" : getErrorMessage(error));
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setRecordsLoading(false);
-        }
+        clearTimeout(timer);
+        if (!disposed && (!controller.signal.aborted || timedOut)) setRecordsLoading(false);
       }
     }
 
     void loadRecords();
-    return () => controller.abort();
-  }, []);
+    return () => { disposed = true; clearTimeout(timer); controller.abort(); };
+  }, [refreshKey]);
 
   const selectedDance =
     records.find((record) => record.dance_id === selectedDanceId) ?? null;
 
-  function compareDance(danceId: string) {
+  function selectDance(danceId: string) {
+    if (danceId !== selectedDanceId) setSelectionRevision((current) => current + 1);
     setSelectedDanceId(danceId);
-    setView("analysis");
   }
+  function retryRecords() { setRecordsLoading(true); setRecordsError(""); setRefreshKey((key) => key + 1); }
+  function compareDance(danceId: string) { selectDance(danceId); setView("analysis"); }
 
   return (
-    <main className="shell">
-      <aside>
-        <div className="brand">
-          <Logo />
-
-          <div>
-            <b>舞迹智存</b>
-            <small>
-              DANCE HERITAGE LAB
-            </small>
+    <div className="shell" data-view={view}>
+      <a className="skip-link" href="#main-content">跳至主要内容</a>
+      <header className="catalogue-header">
+        <div className="catalogue-bar">
+          <div className="brand"><Brand compact /></div>
+          <nav className="catalogue-nav" aria-label="主要导航">
+            {nav.map(
+              ([id, title, icon]) => (
+                <button
+                  className={
+                    view === id
+                      ? "active"
+                      : ""
+                  }
+                  aria-current={view === id ? "page" : undefined}
+                  onClick={() => { setView(id); window.scrollTo({ top: 0, behavior: "instant" }); }}
+                  key={id}
+                >
+                  <DanceIcon name={icon} selected={view === id} />
+                  <span>{title}</span>
+                </button>
+              ),
+            )}
+          </nav>
+          <div className="header-utilities">
+            <button type="button" className="replay-intro" onClick={() => setReplayKey((key) => key + 1)}><Play />重温开场</button>
+            <Badge variant="outline" className="connection-status" role="status" aria-live="polite">
+              <Database />
+              {recordsLoading ? "正在连接资料" : recordsError ? "资料未连接" : `${records.filter((record) => record.has_video).length} 段原始视频`}
+            </Badge>
           </div>
         </div>
-
-        <nav>
-          {nav.map(
-            ([id, title, Icon]) => (
-              <button
-                className={
-                  view === id
-                    ? "active"
-                    : ""
-                }
-                onClick={() => setView(id)}
-                key={id}
-              >
-                <Icon />
-                <span>{title}</span>
-              </button>
-            ),
-          )}
-        </nav>
-
-        <footer>
-          <small>项目进度</small>
-          <b>原型验证期</b>
-          <Progress value={64} />
-
-          <p>
-            数媒竞赛 · 民族文化创新表达
-          </p>
-        </footer>
-      </aside>
+      </header>
 
       <section className="main">
-        <header className="top">
-          <div className="mobile-brand">
-            <Logo />
-            <b>舞迹智存</b>
+        <main id="main-content" tabIndex={-1} className="content">
+          <div className="module-panel" hidden={view !== "studio"}>
+            <Studio active={view === "studio"} selectedDance={selectedDance} selectionRevision={selectionRevision}
+              onNarrationSaved={(danceId, narration) => setRecords((current) => current.map((record) => record.dance_id === danceId ? { ...record, narration } : record))} />
           </div>
+          <div className="module-panel" hidden={view !== "library"}>
+            <Library records={records} selectedDanceId={selectedDanceId} loading={recordsLoading} error={recordsError}
+              onSelectDance={selectDance} onCompare={compareDance} onRetry={retryRecords} />
+          </div>
+          <div className="module-panel" hidden={view !== "analysis"}>
+            <Analysis active={view === "analysis"} records={records} selectedDance={selectedDance} selectionRevision={selectionRevision}
+              loading={recordsLoading} error={recordsError} onRetry={retryRecords} onSelectDance={selectDance} />
+          </div>
+          <div className="module-panel" hidden={view !== "about"}>
+            <About records={records} loading={recordsLoading} error={recordsError} onRetry={retryRecords} />
+          </div>
+        </main>
 
-          <p>
-            民族舞蹈数字化保护平台
-          </p>
-
-          <Badge variant="outline">
-            <Database />
-            {records.filter((record) => record.has_video).length} 段原始视频
-          </Badge>
-        </header>
-
-        <div className="content">
-          {view === "studio" ? (
-            <Studio
-              selectedDance={selectedDance}
-              onNarrationSaved={(danceId, narration) =>
-                setRecords((current) => current.map((record) =>
-                  record.dance_id === danceId ? { ...record, narration } : record,
-                ))
-              }
-            />
-          ) : view === "library" ? (
-            <Library
-              records={records}
-              selectedDanceId={selectedDanceId}
-              loading={recordsLoading}
-              error={recordsError}
-              onSelectDance={setSelectedDanceId}
-              onCompare={compareDance}
-            />
-          ) : view === "analysis" ? (
-            <Analysis
-              records={records}
-              selectedDance={selectedDance}
-              onSelectDance={setSelectedDanceId}
-            />
-          ) : (
-            <About />
-          )}
-        </div>
-
-        <nav className="mobile-nav">
+        <nav className="mobile-nav" aria-label="手机导航">
           {nav.map(
-            ([id, title, Icon]) => (
+            ([id, , icon]) => (
               <button
                 className={
                   view === id
                     ? "active"
                     : ""
                 }
-                onClick={() => setView(id)}
+                aria-current={view === id ? "page" : undefined}
+                onClick={() => { setView(id); window.scrollTo({ top: 0, behavior: "instant" }); }}
                 key={id}
               >
-                <Icon />
+                <DanceIcon name={icon} selected={view === id} />
                 <small>
-                  {title.slice(0, 4)}
+                  {id === "studio" ? "工作台" : id === "library" ? "资源库" : id === "analysis" ? "动作分析" : "项目说明"}
                 </small>
               </button>
             ),
           )}
         </nav>
       </section>
-    </main>
+      <BrandIntro replayKey={replayKey} />
+    </div>
   );
 }

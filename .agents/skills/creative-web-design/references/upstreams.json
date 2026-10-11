@@ -1,0 +1,114 @@
+{
+  "schema_version": 1,
+  "checked_on": "2026-10-10",
+  "data_kind": "custom-shareable-upstream-evidence-not-codex-config",
+  "upstreams": [
+    {
+      "logical_name": "taste",
+      "expected_name": "design-taste-frontend",
+      "entry_file": "SKILL.md",
+      "repository": "https://github.com/Leonxlnx/taste-skill",
+      "source_path": "skills/taste-skill",
+      "version": "v2-experimental",
+      "version_evidence": "Official Taste README labels standard design-taste-frontend as v2 experimental; entry has no version field.",
+      "commit": "717446e07a78d4e6d7918b1fde1a263378eebac9",
+      "entry_sha256": "aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89",
+      "upstream_entry_sha256": "aa194351b246b8b4799099d4ed7b033d29eab6e6e3d58d8d2172978be7b3ec89",
+      "checked_on": "2026-10-10",
+      "local_modification": null,
+      "verification": {
+        "basis": "Installation receipt and freshly recomputed installed file hash; official repositories/spec checked in this creation turn.",
+        "installation_record_matches": true,
+        "fresh_pinned_remote_hash_check": "not-run: one direct raw request timed out; no current hash fetched in that attempt."
+      },
+      "read_requirements": {
+        "entry": true,
+        "by_stage": {
+          "direction": [
+            "SKILL.md"
+          ],
+          "implementation": [
+            "SKILL.md"
+          ]
+        }
+      }
+    },
+    {
+      "logical_name": "impeccable",
+      "expected_name": "impeccable",
+      "entry_file": "SKILL.md",
+      "repository": "https://github.com/pbakaus/impeccable",
+      "source_path": ".agents/skills/impeccable",
+      "version": "4.5.2",
+      "version_evidence": "Installed SKILL.md metadata.version.",
+      "commit": "d631a8827f99414d2b6daba4ef08b7f8701751d7",
+      "entry_sha256": "58c0252bca04521de87007aeb495f7ec99dc4c7341bc890fe82b6d577573af91",
+      "upstream_entry_sha256": "58c0252bca04521de87007aeb495f7ec99dc4c7341bc890fe82b6d577573af91",
+      "checked_on": "2026-10-10",
+      "local_modification": null,
+      "verification": {
+        "basis": "Installation receipt and freshly recomputed installed file hash; official repositories/spec checked in this creation turn.",
+        "installation_record_matches": true,
+        "fresh_pinned_remote_hash_check": "not-run: one direct raw request timed out; no current hash fetched in that attempt."
+      },
+      "read_requirements": {
+        "entry": true,
+        "by_stage": {
+          "intake": [
+            "SKILL.md",
+            "reference/critique.md"
+          ],
+          "review": [
+            "SKILL.md",
+            "reference/audit.md"
+          ],
+          "before_edit": [
+            "reference/craft-floor.md"
+          ],
+          "refine": [
+            "reference/polish.md"
+          ],
+          "local_overdrive": [
+            "reference/overdrive.md"
+          ]
+        }
+      }
+    },
+    {
+      "logical_name": "oil-motion",
+      "expected_name": "oil-motion",
+      "entry_file": "SKILL.md",
+      "repository": "https://github.com/oil-oil/oil-motion",
+      "source_path": ".",
+      "version": null,
+      "version_evidence": "No version field in installed entry; confirmed pinned commit retained.",
+      "commit": "07e31f2265f80caa8f2c1df825d85ac24a46307c",
+      "entry_sha256": "342fd54537dcacf6bd55e05ce12c063cf293e278c94a52c61cba963c153ae002",
+      "upstream_entry_sha256": "12de01898d19a7f1604c19fee5b0de4cf03aceff3afb963203c7e7c85979906d",
+      "checked_on": "2026-10-10",
+      "local_modification": "Added a labelled local runtime section linking LOCAL-RUNTIME.md and .venv activation; original workflow unchanged.",
+      "verification": {
+        "basis": "Installation receipt and freshly recomputed installed file hash; official repositories/spec checked in this creation turn.",
+        "installation_record_matches": true,
+        "fresh_pinned_remote_hash_check": "not-run: one direct raw request timed out; no current hash fetched in that attempt."
+      },
+      "read_requirements": {
+        "entry": true,
+        "by_stage": {
+          "media": [
+            "SKILL.md",
+            "references/delivery-selection.md"
+          ],
+          "runtime": [
+            "references/runtime.md",
+            "references/qa.md"
+          ],
+          "generation": [
+            "references/api-key-setup.md",
+            "references/prompting.md"
+          ]
+        }
+      }
+    }
+  ]
+}
